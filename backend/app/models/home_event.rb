@@ -3,5 +3,6 @@ class HomeEvent < ApplicationRecord
 
   belongs_to :device
 
+  validates :id, presence: true
   validates :occurred_at, presence: true
 end
