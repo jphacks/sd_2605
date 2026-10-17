@@ -1,5 +1,7 @@
 # CoreS3 カメラ動体・移動方向検知
 
+PIR追加仕様・設定・実機確認は[PIR.md](PIR.md)を参照してください。現行は照合成立時だけ自動確認音を鳴らします（PIR無効時は従来動作）。
+
 内蔵GC0308カメラで物体の動きと画面上の左右方向を検知します。
 現在の構成は`cores3.ino` → `CameraOnly.h` → `CameraMotionDetector.h`です。
 人物分類モデル、TensorFlow Lite、LTR-553、Web、Wi-Fi、SD、LittleFS、NVSは使用しません。

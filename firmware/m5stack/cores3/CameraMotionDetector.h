@@ -23,7 +23,7 @@ class CameraMotionDetector {
     MotionDirectionEvent directionEvent;
     MotionDirection liveDirection = MotionDirection::UNKNOWN;
     PassageAction action = PassageAction::NONE;
-    uint32_t directionCount = 0;
+    uint32_t directionCount = 0, directionAt = 0;
     float xStart = -1, xCurrent = -1;
     unsigned regions = 0;
     bool ambiguous = false;
@@ -68,6 +68,7 @@ class CameraMotionDetector {
     result.xStart = directionTracker.xStart(); result.xCurrent = directionTracker.xCurrent();
     if (event) {
       result.directionEvent = directionTracker.event();
+      result.directionAt = millis();
       result.action = passageAction(result.directionEvent.direction, invertArrivalDeparture.load());
       ++result.directionCount;
     }

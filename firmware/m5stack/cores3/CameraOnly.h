@@ -6,6 +6,9 @@
 bool cameraChime = true, cameraSpeakerOK = false;
 #include "CameraMotionDetector.h"
 #include "CameraStatusText.h"
+#include "PirFusion.h"
+PirFusion pirFusion;
+CameraMotionDetector::Result fusionCandidate;
 CameraMotionDetector vision;
 TouchInput cameraTouch;
 String cameraMessage = "Starting camera...";
@@ -24,7 +27,15 @@ void handleMotionDirection(const CameraMotionDetector::Result& event) {
 void cameraSound() {
   bool started = cameraSpeakerOK && !M5.Speaker.isPlaying() && M5.Speaker.tone(1200, 300);
   Serial.printf("[SOUND] started=%d\n", started);
+  if (started) Serial.println("[AUDIO] PLAY");
   cameraNotify(started ? "TEST SOUND started" : "SOUND failed/busy");
+}
+void fusionOutcome(PirFusion::Outcome outcome) {
+  if (outcome == PirFusion::Outcome::CONFIRMED) {
+    Serial.printf("[FUSION] CONFIRMED %s\n", directionName(fusionCandidate.directionEvent.direction));
+    handleMotionDirection(fusionCandidate);
+    if (cameraChime) cameraSound();
+  } else if (outcome == PirFusion::Outcome::REJECTED) Serial.println("[FUSION] REJECTED");
 }
 int cameraReadTouch(uint32_t now) {
   static uint32_t readAt = 0;
@@ -53,6 +64,8 @@ void setup() {
   Serial.setTxTimeoutMs(0);
   Serial.setTxBufferSize(4096);
 #endif
+  pirFusion.begin(millis());
+  if (PirConfig::PIR_ENABLED) pinMode(PirConfig::PIR_PIN, INPUT);
   M5.Display.setRotation(1);
   M5.Display.fillScreen(TFT_BLACK);
   M5.Mic.end();
@@ -82,6 +95,16 @@ void loop() {
   // Let it finish before the UI starts polling that bus.
   if (vision.cameraBusReady.load()) M5.update();
   uint32_t now = millis();
+  if (PirConfig::PIR_ENABLED) {
+    bool level = digitalRead(PirConfig::PIR_PIN) == HIGH;
+    static bool first = true;
+    if (first || level != pirFusion.high) {
+      Serial.println(level ? "[PIR] HIGH" : "[PIR] LOW"); first = false;
+    }
+    pirFusion.sample(now, level);
+    if (!vision.enabled.load()) pirFusion.cancel();
+    else fusionOutcome(pirFusion.poll(now));
+  }
   int action = vision.cameraBusReady.load() ? cameraReadTouch(now) : -1;
   if (Serial.available()) {
     switch (Serial.read()) {
@@ -105,6 +128,7 @@ void loop() {
   } else if (action == 9) {
     if (vision.enabled.load()) {
       vision.enabled.store(false);
+      pirFusion.cancel();
       cameraNotify("PAUSED");
     } else {
       vision.restartRequested.store(true);
@@ -132,12 +156,20 @@ void loop() {
     auto state = vision.snapshot(false);
     if (state.count != cameraLastCount) {
       cameraLastCount = state.count;
-      if (cameraChime) cameraSound();
+      if (!PirConfig::PIR_ENABLED && cameraChime) cameraSound();
       cameraNotify("MOTION DETECTED");
     }
     if (state.directionCount != cameraLastDirectionCount) {
       cameraLastDirectionCount = state.directionCount;
-      handleMotionDirection(state);
+      Serial.printf("[CAMERA] %s\n", directionName(state.directionEvent.direction));
+      if (!PirConfig::PIR_ENABLED) handleMotionDirection(state);
+      else if (vision.enabled.load() && state.directionEvent.direction != MotionDirection::UNKNOWN) {
+        // Tracker cooldown exceeds the pending window: at most one candidate is live.
+        fusionCandidate = state;
+        auto outcome = pirFusion.camera(millis(), state.directionAt);
+        if (outcome == PirFusion::Outcome::PENDING) Serial.println("[FUSION] PENDING");
+        fusionOutcome(outcome);
+      }
     }
     const char* status = state.status == 0 ? "STARTING" : state.status == 2 ? "WARMUP" :
                          state.status == -2 ? "CAMERA ERROR" : state.status == -3 ? "MEMORY ERROR" :
@@ -149,7 +181,8 @@ void loop() {
                          directionName(state.trackState == MotionTrackState::TRACKING ? state.liveDirection : state.directionEvent.direction),
                      String("x:") + int(state.xCurrent) + " dx:" + int(state.trackState == MotionTrackState::TRACKING ?
                          state.xCurrent - state.xStart : state.directionEvent.dx),
-                     String("Chime:") + (cameraChime ? "ON" : "OFF") + " Err:" + state.errors};
+                     String("PIR:") + (!PirConfig::PIR_ENABLED ? "OFF" : !pirFusion.ready(now) ? "WARMUP" : pirFusion.high ? "DETECTED" : "IDLE") +
+                         " F:" + (pirFusion.state == PirFusion::Outcome::PENDING ? "PENDING" : pirFusion.state == PirFusion::Outcome::CONFIRMED ? "CONFIRMED" : "NONE")};
     static String previous[8];
     M5.Display.setTextSize(1);
     M5.Display.setTextPadding(152);
