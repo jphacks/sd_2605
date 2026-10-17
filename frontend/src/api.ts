@@ -72,9 +72,15 @@ export async function login(email: string, password: string): Promise<void> {
 }
 
 export async function loginDevice(deviceId: string, password: string): Promise<void> {
+  const userSession = getSession();
+  if (!userSession) throw new Error("デバイスを再ログインするには、先にアカウントへログインしてください。");
+
   const response = await fetch(`${API_BASE_URL}/sessions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      Authorization: `Bearer ${userSession.token}`,
+    },
     body: JSON.stringify({ device_id: deviceId.trim(), password }),
   });
   if (!response.ok) {
@@ -82,10 +88,26 @@ export async function loginDevice(deviceId: string, password: string): Promise<v
       ? "デバイスIDまたはパスワードが正しくありません。"
       : `ログインに失敗しました（HTTP ${response.status}）。`);
   }
-  const data = await response.json() as { token: string; device_id: string; expires_at?: string };
-  if (!data.token || data.device_id !== deviceId.trim()) throw new Error("認証サーバーから正しいセッション情報を取得できませんでした。");
+  const data = await response.json() as UserAuthResponse & { device_id: string };
+  if (!data.token || !data.user?.id || !data.user.email || data.device_id !== deviceId.trim()) {
+    throw new Error("認証サーバーから正しいデバイス情報を取得できませんでした。");
+  }
   saveSession(data); // デバイスごとに保存し、このデバイスを操作中にする
 }
+
+export async function registerDevice(deviceId: string, password: string): Promise<void> {
+  const userSession = getSession();
+  if (!userSession) throw new Error("デバイスを登録するには、先にアカウントへログインしてください。");
+
+  const id = deviceId.trim();
+  const data = await apiRequest<{ device_id: string }>("/devices", {
+    method: "POST",
+    body: JSON.stringify({ device_id: id, password }),
+  });
+  if (data.device_id !== id) throw new Error("登録したデバイスIDを確認できませんでした。");
+  saveSession({ ...userSession, device_id: id });
+}
+
 export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !(init.body instanceof FormData) && !(init.body instanceof Blob) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json; charset=utf-8");

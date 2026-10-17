@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Cpu, KeyRound, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Check, X } from "lucide-react";
-import { apiRequest, devicePath, loginDevice, DeviceStatus, formatDateTime } from "../api";
+import { apiRequest, devicePath, loginDevice, registerDevice, DeviceStatus, formatDateTime } from "../api";
 import { DEVICE_ID_PATTERN, removeDevice, renameDevice, setActiveDevice, useDevices } from "../devices";
 
 type Info = { state: "loading" } | { state: "ok"; status: DeviceStatus } | { state: "error" };
@@ -37,14 +37,14 @@ export default function DevicesPage() {
     event.preventDefault(); setError(""); setMessage("");
     const id = newId.trim();
     if (!DEVICE_ID_PATTERN.test(id)) { setError("デバイスIDは英数字・ハイフン・アンダースコアで入力してください。"); return; }
-    if (hasSession(id)) { setError("このデバイスはすでに追加されています。"); return; }
+    if (newPassword.length < 8) { setError("パスワードは8文字以上にしてください。"); return; }
     setBusy(true);
     try {
-      await loginDevice(id, newPassword);           // 認証に成功すると一覧に追加され、操作中になる
+      await registerDevice(id, newPassword);
       if (newName.trim()) renameDevice(id, newName);
-      setMessage(`「${newName.trim() || id}」を追加しました。このデバイスを操作中です。`);
+      setMessage(`「${newName.trim() || id}」を登録し、このデバイスを操作中にしました。`);
       setNewId(""); setNewName(""); setNewPassword("");
-    } catch (e) { setError(e instanceof Error ? e.message : "ログインできませんでした。"); }
+    } catch (e) { setError(e instanceof Error ? e.message : "デバイスを登録できませんでした。"); }
     finally { setBusy(false); }
   };
 
@@ -98,13 +98,13 @@ export default function DevicesPage() {
       })}
     </section>
 
-    <div className="section-heading"><div><h2>デバイスを追加</h2><p className="muted">家主から共有されたデバイスIDとパスワードでログインします。</p></div></div>
+    <div className="section-heading"><div><h2>新しいデバイスを登録</h2><p className="muted">デバイスIDとデバイス用パスワードを設定して、アカウントに追加します。</p></div></div>
     <form className="settings-card device-add-form" onSubmit={e => void addDeviceSubmit(e)}>
-      <label className="sender-name-field">デバイスID<input value={newId} onChange={e => setNewId(e.target.value)} placeholder="例：entrance-2" autoComplete="username" required /></label>
-      <label className="sender-name-field">パスワード<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="パスワードを入力" autoComplete="new-password" required /></label>
+      <label className="sender-name-field">デバイスID<input value={newId} onChange={e => setNewId(e.target.value)} placeholder="例：entrance-2" autoComplete="off" minLength={1} maxLength={64} pattern="[A-Za-z0-9_-]+" required /></label>
+      <label className="sender-name-field">デバイス用パスワード<input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="8文字以上" autoComplete="new-password" minLength={8} required /></label>
       <label className="sender-name-field">表示名（任意）<input value={newName} maxLength={30} onChange={e => setNewName(e.target.value)} placeholder="例：実家の玄関" /></label>
-      <button className="button button-primary" type="submit" disabled={busy || !newId.trim() || !newPassword}><Plus size={16} />{busy ? "確認中…" : "追加してログイン"}</button>
+      <button className="button button-primary" type="submit" disabled={busy || !newId.trim() || newPassword.length < 8}><Plus size={16} />{busy ? "登録中…" : "デバイスを登録"}</button>
     </form>
-    <div className="privacy-note"><KeyRound size={16} /><span>ログイン情報はこのブラウザを閉じると消えます。デバイスごとに別のパスワードで認証されます。</span></div>
+    <div className="privacy-note"><KeyRound size={16} /><span>デバイスIDとパスワードはログイン中のアカウントに紐づけて保存されます。パスワードはハッシュ化して保存します。</span></div>
   </div>;
 }

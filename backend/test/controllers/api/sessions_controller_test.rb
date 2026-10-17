@@ -18,5 +18,36 @@ module Api
       assert_response :unauthorized
       assert_equal "invalid_credentials", response.parsed_body.dig("error", "code")
     end
+
+    test "authenticates a registered device owned by the signed-in user" do
+      user = User.create!(email: "owner@example.com", password: "password1")
+      device = Device.create!(id: "entrance-2", user: user, password: "device-pass-1")
+      user_token = JsonWebToken.encode(user.id).first
+
+      post "/api/sessions",
+        params: { device_id: device.id, password: "device-pass-1" },
+        as: :json,
+        headers: { "Authorization" => "Bearer #{user_token}" }
+
+      assert_response :success
+      response_data = response.parsed_body
+      assert_equal device.id, response_data["device_id"]
+      assert_equal user.id, JsonWebToken.decode(response_data["token"])["sub"]
+    end
+
+    test "does not authenticate another user's device" do
+      owner = User.create!(email: "owner@example.com", password: "password1")
+      user = User.create!(email: "other@example.com", password: "password1")
+      device = Device.create!(id: "entrance-2", user: owner, password: "device-pass-1")
+      user_token = JsonWebToken.encode(user.id).first
+
+      post "/api/sessions",
+        params: { device_id: device.id, password: "device-pass-1" },
+        as: :json,
+        headers: { "Authorization" => "Bearer #{user_token}" }
+
+      assert_response :unauthorized
+      assert_equal "invalid_credentials", response.parsed_body.dig("error", "code")
+    end
   end
 end
