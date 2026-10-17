@@ -1,47 +1,27 @@
-import { useEffect, useState } from 'react'
-import './App.css'
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import Layout from "./components/Layout";
+import HomePage from "./pages/HomePage";
+import HistoryPage from "./pages/HistoryPage";
+import VoicePage from "./pages/VoicePage";
+import SettingsPage from "./pages/SettingsPage";
+import DevicesPage from "./pages/DevicesPage";
+import LoginPage from "./pages/LoginPage";
+import { clearAllSessions, useDevices } from "./devices";
 
-type HealthResponse = {
-  status: string
+export default function App() {
+  // どれか1台でもログインしていれば認証済み。全デバイスのセッションが切れると自動でログイン画面へ戻る
+  const { authenticated } = useDevices();
+  const navigate = useNavigate();
+  const handleLogout = () => { clearAllSessions(); navigate("/login", { replace: true }); };
+  return <Routes>
+    <Route path="/login" element={authenticated ? <Navigate to="/" replace /> : <LoginPage onLogin={() => navigate("/", { replace: true })} />} />
+    <Route element={authenticated ? <Layout onLogout={handleLogout} /> : <Navigate to="/login" replace />}>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/history" element={<HistoryPage />} />
+      <Route path="/voice" element={<VoicePage />} />
+      <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/devices" element={<DevicesPage />} />
+    </Route>
+    <Route path="*" element={<Navigate to={authenticated ? "/" : "/login"} replace />} />
+  </Routes>;
 }
-
-function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-
-    fetch('/api/health')
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-        return response.json() as Promise<HealthResponse>
-      })
-      .then((data) => {
-        if (!cancelled) setHealth(data)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'APIに接続できません')
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  return (
-    <main>
-      <h1>sd_2605-mobile</h1>
-      <p>Rails API の状態</p>
-      {health && <p className="status ok">status: {health.status}</p>}
-      {error && <p className="status error">{error}</p>}
-      {!health && !error && <p className="status">確認中...</p>}
-    </main>
-  )
-}
-
-export default App

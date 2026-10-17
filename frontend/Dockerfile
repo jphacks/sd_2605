@@ -4,6 +4,7 @@ WORKDIR /app
 
 COPY package.json ./
 RUN npm install
+RUN chown -R 1000:1000 /app/node_modules
 
 COPY . .
 
