@@ -3,7 +3,7 @@
 M5Unifiedを使用するArduinoスケッチです。
 
 - `firmware/m5stack/core/core.ino`: M5GO-CORE1 v2.7（M5Stack Core）のPIR連動音声再生。
-- `firmware/m5stack/cores3/cores3.ino`: CoreS3用の既存スケッチ。
+- `firmware/m5stack/cores3/cores3.ino`: CoreS3専用の内蔵カメラ動体検知・LittleFS・タッチUI（外付けセンサー不要）。[操作と検証手順](../firmware/m5stack/cores3/README.md)。
 
 ## Coreの接続と準備
 
@@ -98,4 +98,3 @@ WAVは公式[M5Unified Speaker_SD_wav_fileサンプル](https://github.com/m5sta
 - コンパイルとCOM5への書き込み・ハッシュ検証に成功しました。フラッシュ736,171バイト（56%）、静的RAM29,344バイト（8%）。スプライトのメモリは別途実行時に確保されます。
 - 更新後もシリアルで起動完了と起動音の開始・終了を確認しました。観測約6秒でSDは未認識、PIRはHIGHでした。
 - 実機画面の目視、実際の発音、PIR・ボタン操作の確認は未実施です。
-

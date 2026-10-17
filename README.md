@@ -39,8 +39,8 @@
 
 - `apps/`: Webアプリ用（未実装）。
 - `firmware/m5stack/core/`: M5Stack CoreのPIR連動音声再生。`core.ino`が画面と状態制御、`audio_player.h`が再生、`storage.h`がSD/WAV読み込み、`pir_sensor.h`がPIR入力です。
-- `firmware/m5stack/cores3/`: CoreS3の既存Helloスケッチ。Core用の人感ボイス機能は未移植です。
-- `api_client.h`と`secrets.example.h`: 将来のWeb連携用。現在はSDを使用し、LittleFS・Wi-Fi・Web APIは未実装です。
+- `firmware/m5stack/cores3/`: CoreS3専用の内蔵カメラ動体検知・LittleFS WAV・タッチ操作（外付けセンサー不要）。[使い方と音源配置](firmware/m5stack/cores3/README.md)。
+- `api_client.h`と`secrets.example.h`: 将来のWeb連携用。CoreはSD、CoreS3はLittleFSを使用。Wi-Fi・Web APIは未実装です。
 - [ハードウェアと動作確認手順](docs/hardware.md)
 - [開発環境と書き込み](docs/development.md)
 

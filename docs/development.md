@@ -29,3 +29,9 @@ SDを使用する現在の実装では、SDカードに `/welcome.wav` を配置
 - SDは `card mount failed` で未認識。起動時に保存済みコアダンプ領域の `Incorrect size of core dump image` 警告があるが、その後起動処理は完了。
 - 実際の発音・画面の目視・PIRのLOW→HIGHによる再生・ボタン操作・SD/WAV再生は未確認。
 
+
+## CoreS3
+
+CoreS3は`scripts/build-cores3.ps1`と`scripts/upload-cores3.ps1 -Port COM5`を使用します。
+ポートは実接続先に合わせてください。CoreS3のFQBN設定・LittleFS音源配置は
+[CoreS3 README](../firmware/m5stack/cores3/README.md)を参照してください。
