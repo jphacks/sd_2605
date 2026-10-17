@@ -22,10 +22,26 @@ module Api
       assert_equal 70, response.parsed_body["volume"]
     end
 
-    test "rejects a token when it is used for another device" do
+    test "returns forbidden rather than expiring a valid login for another device" do
       get "/api/devices/#{@other_device.id}/status", headers: @headers
 
-      assert_response :unauthorized
+      assert_response :forbidden
+      assert_equal "device_forbidden", response.parsed_body.dig("error", "code")
+    end
+
+    test "login survives the initial default device access when it is not owned" do
+      post "/api/user_sessions", params: { email: @user.email, password: "test-password" }, as: :json
+      assert_response :ok
+      headers = { "Authorization" => "Bearer #{response.parsed_body.fetch('token')}" }
+
+      get "/api/devices/#{@other_device.id}/status", headers: headers
+      assert_response :forbidden
+      get "/api/devices/#{@other_device.id}/events", headers: headers
+      assert_response :forbidden
+      get "/api/devices/#{@device.id}/status", headers: headers
+      assert_response :ok
+      post "/api/devices", params: { device_id: "new-after-login", password: "test-password" }, as: :json, headers: headers
+      assert_response :created
     end
 
     test "updates the persisted volume and rejects out of range values" do
