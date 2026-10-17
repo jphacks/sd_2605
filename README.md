@@ -2,11 +2,7 @@
 
 Rails API（`backend/`）と Vite + React（`frontend/`）を Docker Compose で起動します。DB は PostgreSQL です。
 
-## 事前準備
-
-Docker Desktop の Settings → Resources → WSL Integration で、このディストロを有効にしてからターミナルを開き直してください。
-
-## 起動
+Docker Desktop を入れてから、リポジトリ直下で次を実行してください。
 
 ```bash
 docker compose up --build
@@ -17,4 +13,4 @@ docker compose up --build
 
 画面に `status: ok` と出れば、Vite から Rails へ繋がっています。
 
-開発用の DB パスワードは `password` です。本番の秘密情報は含めていません。
+開発用の DB パスワードは `password` です。
