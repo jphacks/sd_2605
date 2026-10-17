@@ -14,6 +14,8 @@ M5Stack CoreとCoreS3がそれぞれ単体で動作します。以下はCoreの�
 
 ## 将来の連携
 
+[M5Stack・Rails API インターフェース仕様](m5stack-api.md)に、Webアプリ担当者と共有する通信契約をまとめています。M5StackがRails APIへheartbeat・音声取得・イベント送信を行い、取得済みの設定とWAVを本体に保存する構成です。
+
 `apps/`、`contracts/`、`api_client.h` はWebから音源を取得する機能のための配置先です。API通信・Wi-Fiはまだ実装していません。Coreの `storage.h` はSD専用です。
 CoreS3は内蔵GC0308カメラのフレーム差分・LittleFS・WAV分割再生・タッチUIを備えます。外付けセンサーは使わず、LTR-553単独モードも定数で選択できます。
 詳細と将来の音源更新方針は[CoreS3 README](../firmware/m5stack/cores3/README.md)を参照してください。
