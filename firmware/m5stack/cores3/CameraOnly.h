@@ -20,10 +20,10 @@ uint32_t cameraLastDirectionCount = 0, cameraDirectionBase = 0;
 
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
+  if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
   Serial.printf("[DIRECTION EVENT] seq=%lu direction=%s action=%s\n", (unsigned long)event.directionCount,
                 directionName(event.directionEvent.direction), actionName(event.action));
   cameraNotify(String(directionName(event.directionEvent.direction)) + " -> " + actionName(event.action));
-  if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
 }
 
 void cameraSound() {
@@ -148,6 +148,20 @@ void loop() {
     cameraNotify("Count reset");
   }
   if (action >= 6) Serial.println("[UI] " + cameraMessage);
+  // Dispatch audio independently of the 200ms text refresh, before LCD transfers.
+  const auto eventState = vision.snapshot(false);
+  if (eventState.directionCount != cameraLastDirectionCount) {
+    cameraLastDirectionCount = eventState.directionCount;
+    Serial.printf("[CAMERA] %s\n", directionName(eventState.directionEvent.direction));
+    if (!PirConfig::PIR_ENABLED) handleMotionDirection(eventState);
+    else if (vision.enabled.load() && eventState.directionEvent.direction != MotionDirection::UNKNOWN) {
+      // Tracker cooldown exceeds the pending window: at most one candidate is live.
+      fusionCandidate = eventState;
+      auto outcome = pirFusion.camera(millis(), eventState.directionAt);
+      if (outcome == PirFusion::Outcome::PENDING) Serial.println("[FUSION] PENDING");
+      fusionOutcome(outcome);
+    }
+  }
   static uint32_t previewAt = 0;
   if (uint32_t(now - previewAt) >= MotionDirectionConfig::previewIntervalMs) {
     previewAt = now;
@@ -161,18 +175,6 @@ void loop() {
       cameraLastCount = state.count;
 
       cameraNotify("MOTION DETECTED");
-    }
-    if (state.directionCount != cameraLastDirectionCount) {
-      cameraLastDirectionCount = state.directionCount;
-      Serial.printf("[CAMERA] %s\n", directionName(state.directionEvent.direction));
-      if (!PirConfig::PIR_ENABLED) handleMotionDirection(state);
-      else if (vision.enabled.load() && state.directionEvent.direction != MotionDirection::UNKNOWN) {
-        // Tracker cooldown exceeds the pending window: at most one candidate is live.
-        fusionCandidate = state;
-        auto outcome = pirFusion.camera(millis(), state.directionAt);
-        if (outcome == PirFusion::Outcome::PENDING) Serial.println("[FUSION] PENDING");
-        fusionOutcome(outcome);
-      }
     }
     const char* status = state.status == 0 ? "STARTING" : state.status == 2 ? "WARMUP" :
                          state.status == -2 ? "CAMERA ERROR" : state.status == -3 ? "MEMORY ERROR" :

@@ -47,6 +47,7 @@ struct MotionDirectionEvent {
 class MotionDirectionTracker {
   MotionTrackState stateValue = MotionTrackState::IDLE;
   MotionDirectionEvent last;
+  MotionDirection previousDirection = MotionDirection::UNKNOWN;
   unsigned pending = 0, goodFrames = 0, quiet = 0, ambiguousFrames = 0;
   unsigned flowFrames = 0;
   float flowPositive = 0, flowNegative = 0;
@@ -121,6 +122,14 @@ class MotionDirectionTracker {
     last.flowDx = flowPositive - flowNegative; last.flowFrames = flowFrames;
     last.interrupted = interrupted; last.timedOut = timedOut;
     if (!interrupted && !timedOut) last.direction = candidate();
+    // Preserve passage state across cooldown and explicit tracking restarts.
+    if (last.direction == MotionDirection::UNKNOWN) {
+      if (previousDirection == MotionDirection::LEFT_TO_RIGHT)
+        last.direction = MotionDirection::RIGHT_TO_LEFT;
+      else if (previousDirection == MotionDirection::RIGHT_TO_LEFT)
+        last.direction = MotionDirection::LEFT_TO_RIGHT;
+    }
+    if (last.direction != MotionDirection::UNKNOWN) previousDirection = last.direction;
     finalizedAt = now; lastMovingAt = now; stateValue = MotionTrackState::DETECTED; quiet = 0; pending = 0;
     return true;
   }
