@@ -1,0 +1,16 @@
+main {
+  padding: 48px 24px;
+}
+
+.status {
+  margin-top: 16px;
+  font-family: var(--mono);
+}
+
+.status.ok {
+  color: var(--text-h);
+}
+
+.status.error {
+  color: #b91c1c;
+}
