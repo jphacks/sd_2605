@@ -15,6 +15,11 @@ int main() {
   std::fill_n(current, 120, 170);
   auto object = compareFrames(current, previous, 1200, 20);
   assert(object.percent == 10 && object.lightShift == 18);
+  // A large passing object also shifts the image mean; keep its structural change.
+  std::fill_n(current, 1200, 90);
+  std::fill_n(current, 600, 170);
+  auto largeObject = compareFrames(current, previous, 1200, 20);
+  assert(largeObject.percent == 100 && largeObject.lightShift == 50);
   // Low-amplitude sensor noise stays below the per-pixel threshold.
   for (int i = 0; i < 1200; ++i) current[i] = 80 + (i % 7) - 3;
   assert(compareFrames(current, previous, 1200, 20).percent == 0);

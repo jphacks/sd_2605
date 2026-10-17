@@ -3,7 +3,7 @@
 M5Unifiedを使用するArduinoスケッチです。
 
 - `firmware/m5stack/core/core.ino`: M5GO-CORE1 v2.7（M5Stack Core）のPIR連動音声再生。
-- `firmware/m5stack/cores3/cores3.ino`: CoreS3専用の内蔵カメラ動体検知・LittleFS・タッチUI（外付けセンサー不要）。[操作と検証手順](../firmware/m5stack/cores3/README.md)。
+- `firmware/m5stack/cores3/cores3.ino`: CoreS3専用の内蔵カメラ動体・左右方向検知・確認音・タッチUI（Web・外付けセンサー不要、LTR-553不使用）。[操作と検証手順](../firmware/m5stack/cores3/README.md)。
 
 ## Coreの接続と準備
 
