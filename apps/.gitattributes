@@ -1,0 +1,2 @@
+# Executable Ruby scripts are also invoked directly by Rails on Linux/Render.
+backend/bin/* text eol=lf

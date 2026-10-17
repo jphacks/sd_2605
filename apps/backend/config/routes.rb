@@ -9,6 +9,16 @@ Rails.application.routes.draw do
     get "health", to: "health#show"
     post "sessions", to: "sessions#create"
     resources :devices, only: [ :create ]
+    scope "devices/:device_id", controller: :device_content do
+      post "heartbeat", action: :heartbeat
+      get "audio/:slot", action: :audio
+      post "events", action: :create_event
+      get "events", action: :events
+      get "status", action: :status
+      get "settings", action: :settings
+      patch "settings", action: :update_settings
+      post "message", action: :message
+    end
     resources :users, only: [ :create ]
     resources :user_sessions, only: [ :create ]
   end

@@ -4,6 +4,11 @@ class Device < ApplicationRecord
   belongs_to :user, optional: true
   has_one :device_setting, dependent: :destroy
   has_many :home_events, dependent: :destroy
+  has_many :device_audios, dependent: :destroy
+
+  def online?
+    last_seen_at.present? && last_seen_at > 60.seconds.ago
+  end
 
   validates :id, presence: true, format: { with: /\A[A-Za-z0-9_-]{1,64}\z/ }
   validates :password, presence: true, on: :create
