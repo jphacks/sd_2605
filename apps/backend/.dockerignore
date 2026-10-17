@@ -1,0 +1,7 @@
+.git
+.github
+/log/*
+/tmp/*
+/storage/*
+/config/master.key
+/config/credentials/*.key
