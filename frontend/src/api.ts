@@ -2,7 +2,6 @@
 import { clearSession, getActiveDeviceId, getSession, saveSession } from "./devices";
 export { clearSession, getSession };
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
-export const DEVICE_ID = import.meta.env.VITE_DEVICE_ID || "entrance-1";
 export type AudioMeta = { version: number; byte_size: number; content_type: "audio/wav"; path: string; file_name?: string; updated_at?: string | null; registered_by?: string | null };
 export type DeviceStatus = {
   device_id: string;
@@ -21,16 +20,67 @@ export class ApiError extends Error {
   constructor(status: number, message: string, code?: string) { super(message); this.status = status; this.code = code; }
 }
 
-export async function login(deviceId: string, password: string): Promise<void> {
+type UserAuthResponse = {
+  token: string;
+  expires_at?: string;
+  user: { id: number; email: string };
+};
+
+async function readApiError(response: Response, fallback: string): Promise<ApiError> {
+  let message = fallback;
+  let code: string | undefined;
+  try {
+    const body = await response.json();
+    message = body?.error?.message || message;
+    code = body?.error?.code;
+  } catch { /* use fallback */ }
+  return new ApiError(response.status, message, code);
+}
+
+async function saveUserSession(response: Response): Promise<void> {
+  const data = await response.json() as UserAuthResponse;
+  if (!data.token || !data.user?.id || !data.user.email) {
+    throw new Error("認証サーバーから正しいユーザー情報を取得できませんでした。");
+  }
+  saveSession({
+    token: data.token,
+    device_id: getActiveDeviceId(),
+    expires_at: data.expires_at,
+  });
+}
+
+export async function register(email: string, password: string, passwordConfirmation: string): Promise<void> {
+  if (password !== passwordConfirmation) throw new Error("確認用パスワードが一致しません。");
+
+  const response = await fetch(`${API_BASE_URL}/users`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  if (!response.ok) throw await readApiError(response, `新規登録に失敗しました（HTTP ${response.status}）。`);
+  await saveUserSession(response);
+}
+
+export async function login(email: string, password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/user_sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ email: email.trim(), password }),
+  });
+  if (!response.ok) throw await readApiError(response, `ログインに失敗しました（HTTP ${response.status}）。`);
+  await saveUserSession(response);
+}
+
+export async function loginDevice(deviceId: string, password: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/sessions`, {
     method: "POST",
     headers: { "Content-Type": "application/json; charset=utf-8" },
     body: JSON.stringify({ device_id: deviceId.trim(), password }),
   });
   if (!response.ok) {
-    let message = response.status === 401 ? "デバイスIDまたはパスワードが正しくありません。" : `ログインに失敗しました（HTTP ${response.status}）。`;
-    try { const body = await response.json(); message = body?.error?.message || message; } catch { /* use default */ }
-    throw new ApiError(response.status, message);
+    throw await readApiError(response, response.status === 401
+      ? "デバイスIDまたはパスワードが正しくありません。"
+      : `ログインに失敗しました（HTTP ${response.status}）。`);
   }
   const data = await response.json() as { token: string; device_id: string; expires_at?: string };
   if (!data.token || data.device_id !== deviceId.trim()) throw new Error("認証サーバーから正しいセッション情報を取得できませんでした。");

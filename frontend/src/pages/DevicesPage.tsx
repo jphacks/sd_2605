@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Cpu, KeyRound, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Check, X } from "lucide-react";
-import { apiRequest, devicePath, login, DeviceStatus, formatDateTime } from "../api";
+import { apiRequest, devicePath, loginDevice, DeviceStatus, formatDateTime } from "../api";
 import { DEVICE_ID_PATTERN, removeDevice, renameDevice, setActiveDevice, useDevices } from "../devices";
 
 type Info = { state: "loading" } | { state: "ok"; status: DeviceStatus } | { state: "error" };
@@ -40,7 +40,7 @@ export default function DevicesPage() {
     if (hasSession(id)) { setError("このデバイスはすでに追加されています。"); return; }
     setBusy(true);
     try {
-      await login(id, newPassword);                 // 認証に成功すると一覧に追加され、操作中になる
+      await loginDevice(id, newPassword);           // 認証に成功すると一覧に追加され、操作中になる
       if (newName.trim()) renameDevice(id, newName);
       setMessage(`「${newName.trim() || id}」を追加しました。このデバイスを操作中です。`);
       setNewId(""); setNewName(""); setNewPassword("");
@@ -50,7 +50,7 @@ export default function DevicesPage() {
 
   const reauthSubmit = async (event: FormEvent, id: string) => {
     event.preventDefault(); setError(""); setMessage(""); setBusy(true);
-    try { await login(id, reauthPassword); setReauth(null); setReauthPassword(""); }
+    try { await loginDevice(id, reauthPassword); setReauth(null); setReauthPassword(""); }
     catch (e) { setError(e instanceof Error ? e.message : "ログインできませんでした。"); }
     finally { setBusy(false); }
   };

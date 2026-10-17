@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_17_154000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_162000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -23,6 +23,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_154000) do
     t.integer "arrive_audio_version", default: 1, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "message_registered_by"
+    t.datetime "message_uploaded_at"
     t.index ["device_id"], name: "index_device_settings_on_device_id", unique: true
   end
 
@@ -30,6 +32,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_154000) do
     t.datetime "last_seen_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "password_digest"
   end
 
   create_table "home_events", id: :string, force: :cascade do |t|
