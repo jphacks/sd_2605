@@ -1,0 +1,49 @@
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+secrets.h
+
+# Arduino / ESP32 / PlatformIO build output
+build/
+.pio/
+
+# Web dependencies, build output and caches
+node_modules/
+dist/
+.next/
+.nuxt/
+.output/
+.svelte-kit/
+.vite/
+.turbo/
+.cache/
+.vercel/
+.netlify/
+*.tsbuildinfo
+
+# Test output
+coverage/
+playwright-report/
+test-results/
+
+# Runtime and package-manager logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor temporary files and local IDE metadata
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini

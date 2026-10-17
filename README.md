@@ -34,3 +34,17 @@
 #### ハッカソンで開発した独自機能・技術
 * 独自で開発したものの内容をこちらに記載してください
 * 特に力を入れた部分をファイルリンク、またはcommit_idを記載してください。
+
+## Entrance Voice 開発
+
+- `apps/`: Webアプリ用（未実装）。
+- `firmware/m5stack/core/`: M5Stack CoreのPIR連動音声再生。`core.ino`が画面と状態制御、`audio_player.h`が再生、`storage.h`がSD/WAV読み込み、`pir_sensor.h`がPIR入力です。
+- `firmware/m5stack/cores3/`: CoreS3の既存Helloスケッチ。Core用の人感ボイス機能は未移植です。
+- `api_client.h`と`secrets.example.h`: 将来のWeb連携用。現在はSDを使用し、LittleFS・Wi-Fi・Web APIは未実装です。
+- [ハードウェアと動作確認手順](docs/hardware.md)
+- [開発環境と書き込み](docs/development.md)
+
+```powershell
+.\scripts\build-core.ps1
+.\scripts\upload-core.ps1 -Port COM5
+```
