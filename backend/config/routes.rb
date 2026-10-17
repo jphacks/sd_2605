@@ -12,9 +12,9 @@ Rails.application.routes.draw do
     resources :user_sessions, only: [ :create ]
   end
 
-  # Vite のビルド成果物に存在しない画面パスは index.html に戻す。
+  # React Router の画面パスはすべて index.html を返す。/rails は Active Storage などの組み込みルート。
   root "spa#index"
   get "*path", to: "spa#index", constraints: ->(request) {
-    !request.path.start_with?("/api") && request.format.html?
+    !request.path.start_with?("/api", "/rails") && request.format.html?
   }
 end

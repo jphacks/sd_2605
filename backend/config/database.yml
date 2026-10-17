@@ -54,7 +54,7 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
-# username や password をここに書くと DATABASE_URL の認証情報を上書きしてしまう。
+# default の host / username / password を引き継ぐと、DATABASE_URL の値より優先されてしまう。
 production:
   adapter: postgresql
   encoding: unicode

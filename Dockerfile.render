@@ -21,10 +21,14 @@ ENV RAILS_ENV=production \
     BUNDLE_DEPLOYMENT=1
 
 COPY backend/Gemfile backend/Gemfile.lock ./
-RUN bundle install
+RUN bundle install && bundle exec bootsnap precompile -j 1 --gemfile
 
 COPY backend/ ./
+RUN bundle exec bootsnap precompile -j 1 app/ lib/
+
+# public/ のファイルは1年キャッシュされるので、index.html だけは SpaController から no-cache で返す。
 COPY --from=frontend /frontend/dist/ ./public/
+RUN mkdir -p spa && mv public/index.html spa/index.html
 
 EXPOSE 3000
 

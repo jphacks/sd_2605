@@ -1,8 +1,9 @@
 class SpaController < ApplicationController
-  def index
-    html = Rails.public_path.join("index.html")
-    return head :not_found unless html.file?
+  INDEX_HTML = Rails.root.join("spa", "index.html")
 
-    send_file html, type: "text/html", disposition: "inline"
+  def index
+    return head :not_found unless INDEX_HTML.file?
+
+    send_file INDEX_HTML, type: "text/html", disposition: "inline"
   end
 end
