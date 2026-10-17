@@ -100,7 +100,9 @@ module Api
     def load_device
       @device = Device.find_by(id: params[:device_id])
       return render_error(:not_found, "not_found", "Unknown device") unless @device
-      return render_unauthorized if current_user && @device.user_id != current_user.id
+      if current_user && @device.user_id != current_user.id
+        return render_error(:forbidden, "device_forbidden", "このデバイスを操作する権限がありません。デバイス管理で登録したデバイスを選択してください。")
+      end
 
       @setting = DeviceSetting.find_or_create_by!(device: @device)
     end

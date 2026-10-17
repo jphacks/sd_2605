@@ -117,7 +117,10 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   const session = getSession(deviceId);
   if (session) headers.set("Authorization", `Bearer ${session.token}`);
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (response.status === 401) { clearSession(deviceId); window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } })); }
+  if (response.status === 401 && session && getSession(deviceId)?.token === session.token) {
+    clearSession(deviceId);
+    window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } }));
+  }
   if (!response.ok) {
     let message = `HTTP ${response.status}`;
     let code: string | undefined;

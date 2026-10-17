@@ -37,6 +37,8 @@ push するたびに自動でデプロイされます。15分アクセスがな�
 
 ## CoreS3との音声同期
 
+ログイン認証の失敗はHTTP 401、ログイン済みユーザーが所有しないデバイスへのアクセスはHTTP 403（`device_forbidden`）で返します。403ではユーザーセッションを削除せず、デバイス管理で登録・切り替えができます。古いリクエストの401が再ログイン後に届いても、新しいトークンは削除しません。フロント側の回帰テストは `cd frontend && npm test`、ビルドは `npm run build` で実行します。
+
 端末は約20秒ごとに `POST /api/devices/entrance-1/heartbeat`（JSON `{}`）を送り、返された `leave_audio` / `arrive_audio` の版番号を比較して `GET /api/devices/entrance-1/audio/leave` または `/arrive` を取得します。応答は200のWAV本体で、外部ストレージへのリダイレクトは行いません。イベントは従来のevent_id/event_type/occurred_atを `POST /api/devices/:device_id/events` へ送ります。端末用の3 APIは既存契約どおり認証不要です。
 
 最初にWebでユーザー登録・ログインし、デバイスID `entrance-1` を登録してください。未知の端末はJSON 404になり、自動登録しません。Webの状態取得・履歴・設定変更・音声登録はユーザー認証と所有確認が必要です。
