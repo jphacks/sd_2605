@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { Cpu, KeyRound, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Check, X } from "lucide-react";
-import { apiRequest, devicePath, loginDevice, registerDevice, DeviceStatus, formatDateTime } from "../api";
+import { apiRequest, devicePath, loginDevice, registerDevice, DeviceStatus, formatDateTime, ApiError } from "../api";
 import { DEVICE_ID_PATTERN, removeDevice, renameDevice, setActiveDevice, useDevices } from "../devices";
 
-type Info = { state: "loading" } | { state: "ok"; status: DeviceStatus } | { state: "error" };
+type Info = { state: "loading" } | { state: "ok"; status: DeviceStatus } | { state: "error"; httpStatus?: number; message: string };
 
 export default function DevicesPage() {
   const { devices, activeId, hasSession } = useDevices();
@@ -28,7 +28,12 @@ export default function DevicesPage() {
     setInfo(Object.fromEntries(ids.map(id => [id, { state: "loading" } as Info])));
     await Promise.all(ids.map(async id => {
       try { const status = await apiRequest<DeviceStatus>(devicePath("/status", id)); setInfo(prev => ({ ...prev, [id]: { state: "ok", status } })); }
-      catch { setInfo(prev => ({ ...prev, [id]: { state: "error" } })); }
+      catch (e) {
+        setInfo(prev => ({ ...prev, [id]: {
+          state: "error", httpStatus: e instanceof ApiError ? e.status : undefined,
+          message: e instanceof Error ? e.message : "通信に失敗しました。接続を確認して更新してください。",
+        } }));
+      }
     }));
   }, [loggedInKey]);
   useEffect(() => { void load(); }, [load]);
@@ -63,7 +68,7 @@ export default function DevicesPage() {
     if (!hasSession(id)) return <span className="status-pill"><span className="status-dot is-offline" />要ログイン</span>;
     const i = info[id];
     if (!i || i.state === "loading") return <span className="status-pill">確認中</span>;
-    if (i.state === "error") return <span className="status-pill"><span className="status-dot is-offline" />取得できません</span>;
+    if (i.state === "error") return <span className="status-pill"><span className="status-dot is-offline" />{i.httpStatus === 403 ? "アカウント未紐づけ" : i.httpStatus === 404 ? "サーバー未登録" : "取得できません"}</span>;
     return <span className="status-pill"><span className={`status-dot ${i.status.online ? "" : "is-offline"}`} />{i.status.online ? "オンライン" : "オフライン"}</span>;
   };
 
@@ -82,6 +87,7 @@ export default function DevicesPage() {
               ? <div className="device-rename"><input autoFocus aria-label="表示名" value={draft} maxLength={30} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveName(d.id); if (e.key === "Escape") setEditing(null); }} /><button className="text-button" onClick={() => saveName(d.id)} aria-label="名前を保存"><Check size={16} /></button><button className="text-button" onClick={() => setEditing(null)} aria-label="キャンセル"><X size={16} /></button></div>
               : <strong>{d.name}{isActive && <span className="device-badge">操作中</span>}</strong>}
             <small>{d.id}{authed && i?.state === "ok" ? ` ・ 最終通信 ${formatDateTime(i.status.last_seen_at)}` : ""}</small>
+            {i?.state === "error" && <small role="alert">{i.httpStatus ? `HTTP ${i.httpStatus}: ` : ""}{i.message}</small>}
           </div>
           {statusPill(d.id)}
           <div className="device-actions">
