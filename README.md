@@ -15,4 +15,21 @@ docker compose up --build
 
 開発用の DB パスワードは `password` です。
 
-ローカルでログイン画面を確認する場合は、デバイスID `entrance-1`、仮パスワード `tadaima-demo` を使用してください。この仮ログインは開発・テスト環境のみで有効です。本番環境では利用できず、実際のデバイス認証や他のAPIエンドポイントも実装していません。
+ログインはメールアドレスとパスワードです。デバイスID `entrance-1`、仮パスワード `tadaima-demo` の仮ログインは開発・テスト環境のみで有効です。
+
+## デプロイ（Render）
+
+フロントのビルド成果物を Rails が配信する1つの Web Service と、PostgreSQL を Render の無料枠に置きます。設定は `render.yaml` です。
+
+1. このリポジトリを GitHub に push する
+2. [Render](https://render.com) に GitHub でサインアップし、`jphacks` org のリポジトリへのアクセスを許可する
+3. Dashboard の **New > Blueprint** でこのリポジトリを選ぶ。Web Service と PostgreSQL が作られる
+4. ビルドが終わったら `https://<service>.onrender.com/api/health` が `{"status":"ok"}` になることを確認する
+
+環境変数は Blueprint が設定します。
+
+- `RAILS_ENV=production`
+- `SECRET_KEY_BASE`（Render が生成）
+- `DATABASE_URL`（PostgreSQL の接続文字列）
+
+push するたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。発表の直前に一度開いて起こしておいてください。無料の PostgreSQL は作成から30日で失効します。

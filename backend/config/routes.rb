@@ -13,6 +13,9 @@ Rails.application.routes.draw do
     resources :user_sessions, only: [ :create ]
   end
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # React Router の画面パスはすべて index.html を返す。/rails は Active Storage などの組み込みルート。
+  root "spa#index"
+  get "*path", to: "spa#index", constraints: ->(request) {
+    !request.path.start_with?("/api", "/rails") && request.format.html?
+  }
 end
