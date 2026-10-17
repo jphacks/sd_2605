@@ -139,3 +139,18 @@ g++ -std=c++11 tests/cores3/storage_test.cpp -o /tmp/cores3-storage-test && /tmp
   反応の原因が人の通過であるか、実際の発音・プレビュー・タッチの動作は未確認。
 - 起動時に既存コアダンプ領域の`Incorrect size of core dump image`警告あり。その後は起動・検知・再生処理が継続。
 - ログ: `build/cores3/serial-camera-upload.log`（Git対象外）。LittleFSの音源は置き換えていません。
+
+## 今回の検証結果（2026-10-17）
+
+- Arduino CLI 1.5.1、M5Stack ESP32 3.3.10、M5Unified 0.2.26、M5GFX 0.2.33で
+  最終カメラモードのコンパイル・リンクに成功しました。
+- FQBN: `m5stack:esp32:m5stack_cores3:PSRAM=enabled,PartitionScheme=default`。
+  `--clean --jobs 1 --build-path ./build/cores3-verify --output-dir ./build/cores3`で検証。
+  Flash使用率49%、静的RAM使用率11%。成果物とログは`build/`配下です。
+- 最初の一時キャッシュ先エラー、続くArduino標準クラスのリンクエラーは、
+  新規ビルド先・キャッシュなし・単一ジョブでのビルドで回避しました。
+  ビルドスクリプトの既定も1ジョブとし、`-Clean`を追加しています。
+- 差分スコアとWAVパーサーのホストテストが成功しました。
+- 今回の書き込み・シリアル確認・実際の発音・カメラ検知・近接・タッチの実機確認は未実施です。
+  近接モードは実機での生値確認と閾値調整が必要です。
+- `firmware/m5stack/core/`は変更していません。
