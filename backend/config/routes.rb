@@ -12,6 +12,9 @@ Rails.application.routes.draw do
     resources :user_sessions, only: [ :create ]
   end
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # Vite のビルド成果物に存在しない画面パスは index.html に戻す。
+  root "spa#index"
+  get "*path", to: "spa#index", constraints: ->(request) {
+    !request.path.start_with?("/api") && request.format.html?
+  }
 end

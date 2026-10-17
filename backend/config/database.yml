@@ -54,8 +54,9 @@ test:
 # Read https://guides.rubyonrails.org/configuring.html#configuring-a-database
 # for a full overview on how database connection configuration can be specified.
 #
+# username や password をここに書くと DATABASE_URL の認証情報を上書きしてしまう。
 production:
-  <<: *default
-  database: sd_2605_mobile_production
-  username: sd_2605_mobile
-  password: <%= ENV["SD_2605_MOBILE_DATABASE_PASSWORD"] %>
+  adapter: postgresql
+  encoding: unicode
+  max_connections: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV["DATABASE_URL"] %>

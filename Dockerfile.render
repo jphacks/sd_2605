@@ -1,0 +1,31 @@
+FROM node:22 AS frontend
+
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+FROM ruby:3.3.11
+
+RUN apt-get update -qq \
+  && apt-get install -y --no-install-recommends build-essential libpq-dev \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+ENV RAILS_ENV=production \
+    BUNDLE_WITHOUT="development:test" \
+    BUNDLE_DEPLOYMENT=1
+
+COPY backend/Gemfile backend/Gemfile.lock ./
+RUN bundle install
+
+COPY backend/ ./
+COPY --from=frontend /frontend/dist/ ./public/
+
+EXPOSE 3000
+
+CMD ["bash", "-c", "bundle exec rails db:prepare && exec bundle exec rails server -b 0.0.0.0 -p ${PORT:-3000}"]
