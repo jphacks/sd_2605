@@ -5,6 +5,7 @@
 // Shared device state precedes camera/audio application headers.
 bool cameraChime = true, cameraSpeakerOK = false;
 #include "CameraMotionDetector.h"
+#include "CameraVoice.h"
 #include "CameraStatusText.h"
 #include "PirFusion.h"
 PirFusion pirFusion;
@@ -17,11 +18,12 @@ void cameraNotify(const String& text) { cameraMessage = text; cameraMessageAt = 
 uint32_t cameraCountBase = 0, cameraLastCount = 0;
 uint32_t cameraLastDirectionCount = 0, cameraDirectionBase = 0;
 
-// A single delivery point for future mode-specific voice playback. UNKNOWN maps to NONE.
+// Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
   Serial.printf("[DIRECTION EVENT] seq=%lu direction=%s action=%s\n", (unsigned long)event.directionCount,
                 directionName(event.directionEvent.direction), actionName(event.action));
   cameraNotify(String(directionName(event.directionEvent.direction)) + " -> " + actionName(event.action));
+  if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
 }
 
 void cameraSound() {
@@ -34,7 +36,7 @@ void fusionOutcome(PirFusion::Outcome outcome) {
   if (outcome == PirFusion::Outcome::CONFIRMED) {
     Serial.printf("[FUSION] CONFIRMED %s\n", directionName(fusionCandidate.directionEvent.direction));
     handleMotionDirection(fusionCandidate);
-    if (cameraChime) cameraSound();
+
   } else if (outcome == PirFusion::Outcome::REJECTED) Serial.println("[FUSION] REJECTED");
 }
 int cameraReadTouch(uint32_t now) {
@@ -71,6 +73,7 @@ void setup() {
   M5.Mic.end();
   cameraSpeakerOK = M5.Speaker.begin();
   M5.Speaker.setVolume(128);
+  cameraVoiceBegin();
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
   M5.Display.setTextSize(2);
   M5.Display.drawString("CAMERA DIRECTION", 0, 2);
@@ -156,7 +159,7 @@ void loop() {
     auto state = vision.snapshot(false);
     if (state.count != cameraLastCount) {
       cameraLastCount = state.count;
-      if (!PirConfig::PIR_ENABLED && cameraChime) cameraSound();
+
       cameraNotify("MOTION DETECTED");
     }
     if (state.directionCount != cameraLastDirectionCount) {
