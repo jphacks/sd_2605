@@ -1,8 +1,7 @@
 class HomeEvent < ApplicationRecord
-  EVENT_TYPES = %w[left_home arrived_home].freeze
+  enum :event_type, { left_home: "left_home", arrived_home: "arrived_home" }, validate: true
 
   belongs_to :device
 
-  validates :event_type, inclusion: { in: EVENT_TYPES }
   validates :occurred_at, presence: true
 end
