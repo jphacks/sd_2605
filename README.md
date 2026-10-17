@@ -37,9 +37,9 @@
 
 ## Entrance Voice 開発
 
-- `apps/`: Webアプリ用（未実装）。
+- `apps/`: [sd_2605-mobile](https://github.com/jphacks/sd_2605-mobile) の `main` をgit subtree（履歴を保持）で取り込んだWebアプリ。更新は `git subtree pull --prefix=apps https://github.com/jphacks/sd_2605-mobile.git main` を使用します（作業ツリーがクリーンな状態で実行）。
 - `firmware/m5stack/core/`: M5Stack CoreのPIR連動音声再生。`core.ino`が画面と状態制御、`audio_player.h`が再生、`storage.h`がSD/WAV読み込み、`pir_sensor.h`がPIR入力です。
-- `firmware/m5stack/cores3/`: 現在はWebなしの内蔵カメラによる動体検知・左右の移動方向判定・確認音・タッチ操作が既定です（LTR-553は不使用）。切り替え可能なRails API / LittleFS音声版も保持しています。[使い方](firmware/m5stack/cores3/README.md)。
+- `firmware/m5stack/cores3/`: 内蔵カメラによる動体検知・左右方向判定・PIR照合・LittleFS音声再生・タッチ操作を維持し、Render向けHTTPS音声同期を接続しています（LTR-553は不使用）。Render本番でheartbeat・leave/arriveのWAV取得を確認済みです。[使い方](firmware/m5stack/cores3/README.md)。
 - `api_client.h`と`secrets.example.h`: 将来のWeb連携用。CoreはSD、CoreS3はLittleFSを使用。CoreS3のWi-Fi・Rails APIは専用スケッチ内に実装しています。
 - [ハードウェアと動作確認手順](docs/hardware.md)
 - [開発環境と書き込み](docs/development.md)

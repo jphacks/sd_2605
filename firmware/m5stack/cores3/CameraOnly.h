@@ -2,8 +2,16 @@
 #include <M5Unified.h>
 #include <algorithm>
 #include "TouchInput.h"
+#include "Config.h"
+#include "Storage.h"
 // Shared device state precedes camera/audio application headers.
 bool cameraChime = true, cameraSpeakerOK = false;
+Storage cameraStorage;
+#include "EventManager.h"
+#include "ApiClient.h"
+EventManager cameraEvents(cameraStorage);
+ApiClient cameraApi(cameraStorage, cameraEvents);
+bool cameraStorageOK = false;
 #include "CameraMotionDetector.h"
 #include "CameraVoice.h"
 #include "CameraStatusText.h"
@@ -15,12 +23,27 @@ TouchInput cameraTouch;
 String cameraMessage = "Starting camera...";
 uint32_t cameraMessageAt = 0;
 void cameraNotify(const String& text) { cameraMessage = text; cameraMessageAt = millis(); }
+String cameraNetworkStatus() {
+  if (!cameraStorageOK) return "WiFi:OFF STORAGE ERR";
+  if (!strlen(WIFI_SSID)) return "WiFi:NOT CONFIGURED";
+  switch (WiFi.status()) {
+    case WL_CONNECTED:
+      if (!cameraApi.code()) return time(nullptr) < 1767225600 ? "WiFi:ON TIME WAIT" : "WiFi:ON API WAIT";
+      return String("WiFi:ON API:") + cameraApi.code();
+    case WL_NO_SSID_AVAIL: return "WiFi:NO SSID";
+    case WL_CONNECT_FAILED: return "WiFi:CONNECT FAILED";
+    case WL_CONNECTION_LOST: return "WiFi:LOST RETRYING";
+    default: return "WiFi:CONNECTING";
+  }
+}
 uint32_t cameraCountBase = 0, cameraLastCount = 0;
 uint32_t cameraLastDirectionCount = 0, cameraDirectionBase = 0;
 
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
   if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
+  if (cameraStorageOK && ENABLE_AUTO_EVENTS && event.action != PassageAction::NONE)
+    cameraEvents.enqueue(event.action == PassageAction::ARRIVE ? 0 : 1);
   Serial.printf("[DIRECTION EVENT] seq=%lu direction=%s action=%s\n", (unsigned long)event.directionCount,
                 directionName(event.directionEvent.direction), actionName(event.action));
   cameraNotify(String(directionName(event.directionEvent.direction)) + " -> " + actionName(event.action));
@@ -73,7 +96,11 @@ void setup() {
   M5.Mic.end();
   cameraSpeakerOK = M5.Speaker.begin();
   M5.Speaker.setVolume(128);
-  cameraVoiceBegin();
+  cameraStorageOK = cameraStorage.begin();
+  if (cameraStorageOK) {
+    cameraVoiceBegin();
+    if (!cameraApi.start()) Serial.println("[API] task creation failed");
+  } else Serial.println("[FS] NVS/mutex initialization failed");
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
   M5.Display.setTextSize(2);
   M5.Display.drawString("CAMERA DIRECTION", 0, 2);
@@ -85,7 +112,7 @@ void setup() {
     M5.Display.drawRect(x, y, 106, 37, TFT_DARKGREY);
     M5.Display.drawString(labels[i], x + 8, y + 13);
   }
-  Serial.printf("[BOOT] CAMERA MOTION; LTR553=UNUSED WiFi=OFF speaker=%d\n", cameraSpeakerOK);
+  Serial.printf("[BOOT] CAMERA MOTION; LTR553=UNUSED WiFi=ON speaker=%d\n", cameraSpeakerOK);
   Serial.printf("[DIRECTION] minDx=%.0f startFrames=%u minFrames=%u endFrames=%u cooldown=%lu mirror=%d invertMap=%d\n",
                 MotionDirectionConfig::minDisplacement, MotionDirectionConfig::startFrames,
                 MotionDirectionConfig::minTrackFrames, MotionDirectionConfig::endFrames,
@@ -98,6 +125,7 @@ void loop() {
   // Let it finish before the UI starts polling that bus.
   if (vision.cameraBusReady.load()) M5.update();
   uint32_t now = millis();
+  if (cameraStorageOK) cameraVoiceRefresh(now);
   if (PirConfig::PIR_ENABLED) {
     bool level = digitalRead(PirConfig::PIR_PIN) == HIGH;
     static bool first = true;
@@ -210,6 +238,14 @@ void loop() {
       M5.Display.drawString(footer, 0, 151);
       Serial.println("[UI STATUS] " + footer);
       previous[7] = footer;
+    }
+    static String previousNetwork;
+    String network = cameraNetworkStatus();
+    if (network != previousNetwork) {
+      M5.Display.setTextPadding(152);
+      M5.Display.drawString(network, 168, 140);
+      Serial.println("[UI WiFi] " + network);
+      previousNetwork = network;
     }
     M5.Display.setTextPadding(0);
   }

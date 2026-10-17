@@ -2,20 +2,32 @@
 #include <LittleFS.h>
 #include "Config.h"
 #include "WavValidation.h"
+#include <atomic>
 
 // Keep both buffers alive for the asynchronous speaker task.
 uint8_t* cameraVoiceData[2] = {};
 size_t cameraVoiceSize[2] = {};
-void cameraVoiceBegin() {
-  if (!LittleFS.begin(false)) {
-    Serial.println("[VOICE] LittleFS mount failed (no format)");
-    return;
-  }
-  const char* paths[] = {"/arrive0.wav", "/leave0.wav"};
+std::atomic<bool> cameraVoiceReleased{true};
+void cameraVoiceRelease(void*, const void*, uint8_t) { cameraVoiceReleased.store(true); }
+int64_t cameraVoiceVersion[2] = {-2, -2};
+// Called only from the UI task while playback is idle. A failed reload retains the old buffer.
+void cameraVoiceRefresh(uint32_t now) {
+  static uint32_t checkedAt = 0;
+  static int64_t missingLogged[2] = {-2, -2};
+  if (now && uint32_t(now - checkedAt) < 1000) return;
+  if (M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) return;
+  checkedAt = now;
+  StorageGuard guard(cameraStorage);
+  if (!cameraStorage.mounted) return;
   for (int i = 0; i < 2; ++i) {
-    File f = LittleFS.open(paths[i], FILE_READ);
+    int64_t version = cameraStorage.records[i].version;
+    if (cameraVoiceData[i] && cameraVoiceVersion[i] == version) continue;
+    String path = cameraStorage.path(i, cameraStorage.records[i].bank);
+    File f = LittleFS.open(path, FILE_READ);
     if (!f || !validWav(f)) {
-      Serial.printf("[VOICE] invalid/missing %s\n", paths[i]);
+      if (missingLogged[i] != version)
+        Serial.printf("[VOICE] invalid/missing %s\n", path.c_str());
+      missingLogged[i] = version;
       continue;
     }
     size_t n = f.size();
@@ -23,17 +35,36 @@ void cameraVoiceBegin() {
     f.seek(0);
     if (!data || f.read(data, n) != n) {
       free(data);
-      Serial.printf("[VOICE] load failed %s\n", paths[i]);
+      Serial.printf("[VOICE] load failed %s\n", path.c_str());
       continue;
     }
+    free(cameraVoiceData[i]);
     cameraVoiceData[i] = data;
     cameraVoiceSize[i] = n;
-    Serial.printf("[VOICE] loaded %s bytes=%u\n", paths[i], unsigned(n));
+    cameraVoiceVersion[i] = version;
+    Serial.printf("[VOICE] loaded %s bytes=%u version=%lld\n", path.c_str(), unsigned(n),
+                  (long long)version);
   }
 }
+void cameraVoiceBegin() {
+  M5.Speaker.setBufferReleaseCallback(nullptr, cameraVoiceRelease);
+  cameraVoiceRefresh(0);
+}
 void cameraPlayVoice(PassageAction action) {
+  if (!cameraStorageOK) { Serial.println("[VOICE] storage unavailable"); return; }
+  if (M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) return;
   int slot = action == PassageAction::ARRIVE ? 0 : 1;
-  bool started = cameraSpeakerOK && cameraVoiceData[slot] && !M5.Speaker.isPlaying() &&
+  bool enabled;
+  uint8_t volume;
+  {
+    StorageGuard guard(cameraStorage);
+    enabled = slot ? cameraStorage.settings.leave : cameraStorage.settings.arrive;
+    volume = cameraStorage.settings.volume;
+  }
+  M5.Speaker.setVolume((volume * 255 + 50) / 100);
+  cameraVoiceReleased.store(false);
+  bool started = enabled && cameraSpeakerOK && cameraVoiceData[slot] && !M5.Speaker.isPlaying() &&
                  M5.Speaker.playWav(cameraVoiceData[slot], cameraVoiceSize[slot], 1, 0);
+  if (!started) cameraVoiceReleased.store(true);
   Serial.printf("[VOICE] %s started=%d\n", actionName(action), started);
 }

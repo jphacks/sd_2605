@@ -1,10 +1,23 @@
-## ローカル音声再生（2026-10-17）
+# CoreS3 Render音声同期（2026-10-18）
 
-カメラ専用モードでもLittleFSを読み取り、確定したARRIVEでは `/arrive0.wav`、LEAVEでは `/leave0.wav` を再生します。Wi-Fi/API/NVSは使用しません。PIR有効時は照合成立後に再生し、CHIME OFFでは方向別音声も消音します。TEST SOUNDは従来の1200Hz確認音です。検知開始時の共通確認音は鳴らしません。
+画面右側の下段（PIR表示の下）にWi-Fi/API状態を表示します。`WiFi:CONNECTING`は接続中、`WiFi:NO SSID`は接続先が見つからない状態、`WiFi:CONNECT FAILED`は接続失敗、`WiFi:ON TIME WAIT`は時刻同期待ち、`WiFi:ON API:200`は接続済みで直近のheartbeat成功です。負のAPI値は通信/TLSエラー、200以外の正値はHTTPエラーです。状態変化時だけSerialへ`[UI WiFi]`を出力します。SSID・パスワードは画面やログへ出しません。
 
-音源はPCM WAV・モノラル・16bit・16kHz・最大5秒です。起動時に検証してPSRAMへ読み込み、シリアルに `[VOICE] loaded` を出します。欠損・不正形式・メモリ不足時はログを出し、代替音は鳴らしません。LittleFSの自動フォーマットは行いません。
+COM4への状態表示版のビルド・書き込み・ハッシュ照合に成功しました。実機ログでWi-Fi接続、HTTPS heartbeat 200を3回、画面の`WiFi:ON API:200`描画、再起動後の保存WAV読込を確認済みです（arrive 26,144 bytes / leave 34,224 bytes、両version 1）。今回は同版なので再取得していません。実際の発音・人の通過による方向判定は別途確認してください。ログは`build/cores3-wifi-display-{upload,serial}.log`です。
 
-今回の直接書き込み音源は `okaeri_03.wav`（ARRIVE）と `itterasshai_01.wav`（LEAVE）を16kHzへ変換したものです。以下の旧説明にある「LittleFS不使用」「方向フック未接続」はこの変更より前の状態です。
+
+現行のカメラ方向検知・PIR照合・MAP・CHIME・TEST SOUNDを維持し、既存のAPIタスクとLittleFS/NVS管理を接続しました。確定したARRIVE/LEAVEの選択条件は変更していません。CHIME OFFは方向別音声を消音します。`ENABLE_AUTO_EVENTS`は従来どおり既定falseで、trueの場合だけ確定したARRIVE/LEAVEを既存のイベントキューに保存します。UNKNOWNは送信しません。イベントID・種別・UTC時刻・再送方式は既存EventManagerのままです。
+
+初回調査では指定Renderの4 APIはすべて404でした。現在は取り込んだ `apps/backend` に契約どおりのAPIを追加しています。Web側変更は本番へデプロイ済みで、heartbeat・leave/arrive WAVのHTTP 200を確認しました。[調査結果・テスト・実機確認手順](../../../docs/cores3-render-migration.md)を参照してください。以下の過去の作業記録より、この節が現在の通信構成を示します。
+
+`secrets.example.h`をGit対象外の`secrets.h`へコピーし、Wi-Fiを設定します。`RAILS_BASE_URL`の既定は`https://sd-2605-mobile.onrender.com`、端末IDは`entrance-1`です。ローカル開発では同じ定義を`http://<RailsのLANアドレス>:3000`へ変更できます。末尾の`/`は付けません。既存secrets.hがある場合はそちらの定義が優先されるため、URLを更新してください。Wi-Fi認証情報をログ・Gitへ出さないでください。
+
+HTTPSはWiFiClientSecure + HTTPClientを使い、GTS Root R1〜R4とISRG Root X1でCA・ホスト名を検証します。CAの公開取得元は`TlsRoots.h`に記載しています。APIホストのCA変更時は更新してください。`API_TLS_INSECURE`は既定falseです。trueは開発専用で、本番ではfalseにします。NTPで時計が有効になるまでHTTPSとイベント送信を待ちますが、ローカル再生と検知は継続します。初回起動でNTPに到達できない場合、HTTPS同期はできません。
+
+Wi-Fi再接続は15秒、heartbeatは約20秒、イベント再送は10秒間隔です。通信は別FreeRTOSタスクで実行し、接続4秒・TLSハンドシェイク5秒・読み取り5秒・転送先書き込み15秒の上限を設けます。転送時間によりheartbeatは遅れる場合があります。リダイレクトは追従せずエラーとして記録します。Render起動待ち・接続失敗も次の周期で再試行します。
+
+音声取得は全体をRAMに展開せず`/download.tmp`へストリーム保存します。既存のサイズ・RIFF全長・チャンク境界・PCM16bit/16kHz/mono・5秒以内・200KiB以下の検証後に、非アクティブbankへrenameしNVSのbank/versionを更新します。有効な保存音声があれば同じ版や古い版は取得しません。欠落・破損時は再取得します。失敗時は以前のアクティブ音声・版番号を保持します。
+
+再生用の2つのPSRAMバッファは維持し、再生中とSpeakerのバッファ解放前には更新しません。保存版が変わった場合、UIタスクで最大1秒間隔で再読込し、読み込み失敗時は旧バッファを保持します。再生時にネットワークへ問い合わせません。再起動時はNVSが指すbankを読み込みます。以前に直接保存した`/arrive0.wav`と`/leave0.wav`も、NVS未設定時のbank 0として使えます。LittleFSの自動フォーマットは行いません。
 
 # CoreS3 カメラ動体・移動方向検知
 
@@ -12,8 +25,8 @@ PIR追加仕様・設定・実機確認は[PIR.md](PIR.md)を参照してくだ�
 
 内蔵GC0308カメラで物体の動きと画面上の左右方向を検知します。
 現在の構成は`cores3.ino` → `CameraOnly.h` → `CameraMotionDetector.h`です。
-人物分類モデル、TensorFlow Lite、LTR-553、Web、Wi-Fi、SD、LittleFS、NVSは使用しません。
-画像を保存・送信しません。USB Serialは送信待ち0ms・バッファ4KBとし、モニター未接続や読み取り停止でも撮影を待たせません。送信が詰まった場合、診断ログは一部欠落することがあります。旧Web版の通信・音声処理やCoreのファームウェアは変更していません。
+人物分類モデル、TensorFlow Lite、LTR-553、SDは使用しません。Wi-Fi・API・LittleFS・NVSは上記の音声同期に使用します。
+画像を保存・送信しません。USB Serialは送信待ち0ms・バッファ4KBとし、モニター未接続や読み取り停止でも撮影を待たせません。送信が詰まった場合、診断ログは一部欠落することがあります。カメラの方向判定ロジックとCoreのファームウェアは変更していません。
 
 ## 重心だけでは方向が出ないケースへの対応（2026-10-17）
 
@@ -55,6 +68,9 @@ Serialの`[UI DIRECTION] seq=... state=... label=... final=...`は実際にLCD�
 候補が確定イベントを生成せず、確定後にLast用の結果が保存されるホストテストと既存の左右テストに成功。ビルド成功（Flash 632,403 bytes、静的RAM 45,840 bytes）、COM4へ書き込み・ハッシュ照合成功。Serialでerrors=0、撮影約18〜20fpsの稼働を確認しました。取得中に通過はなく、実機でのNow／Lastの切り替わりと発音は未確認です。ログは`build/cores3-direction-display-{build,upload,serial}.log`です。
 
 ## ビルド・書き込み
+
+HTTPSとカメラの併用で従来の1.25MiBアプリ領域を超えるため、スケッチ内`partitions.csv`で未使用の2つのOTA領域を1つの2.5MiB factory領域へまとめています。NVS（0x9000/0x5000）とLittleFS（0x290000/0x160000）は元の位置・容量のままです。OTA更新は使用せず、USBで書き込みます。ビルドスクリプトは既存FQBNを維持し、実際のアプリ上限をupload.maximum_sizeへ指定します。LittleFSの初期化・全Flash消去は不要です。保存音声を残す場合は既存のupload-cores3.ps1を使い、merged.binでの全領域書き込みを避けてください。
+
 
 M5Unified 0.2.26、M5GFX 0.2.33、M5Stack ESP32 3.3.10を使用します。
 

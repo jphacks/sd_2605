@@ -7,13 +7,16 @@
 #define WIFI_PASSWORD ""
 #endif
 #ifndef RAILS_BASE_URL
-#define RAILS_BASE_URL "http://192.168.1.20:3000"
+#define RAILS_BASE_URL "https://sd-2605-mobile.onrender.com"
 #endif
 #ifndef ENTRANCE_DEVICE_ID
 #define ENTRANCE_DEVICE_ID "entrance-1"
 #endif
 #ifndef ENABLE_AUTO_EVENTS
 #define ENABLE_AUTO_EVENTS false
+#endif
+#ifndef API_TLS_INSECURE
+#define API_TLS_INSECURE false
 #endif
 namespace Config {
 constexpr char baseUrl[] = RAILS_BASE_URL, deviceId[] = ENTRANCE_DEVICE_ID;

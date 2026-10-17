@@ -1,6 +1,11 @@
 #pragma once
 #include <HTTPClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
+#include <time.h>
+#include "TlsRoots.h"
+#include "AudioSyncPolicy.h"
+#include "WavValidation.h"
 #include <atomic>
 // HTTPClient decodes both Content-Length and chunked bodies into this bounded sink.
 class BoundedBody : public Stream {
@@ -40,13 +45,32 @@ class ApiClient {
   String endpoint(const char* suffix) {
     return String("/api/devices/") + Config::deviceId + suffix;
   }
-  bool begin(HTTPClient& h, WiFiClient& client, const String& path) {
-    h.setConnectTimeout(2000);
-    h.setTimeout(3000);
+  bool secure() { return String(Config::baseUrl).startsWith("https://"); }
+  bool begin(HTTPClient& h, WiFiClient& plain, WiFiClientSecure& tls, const String& path) {
+    h.setConnectTimeout(4000);
+    h.setTimeout(5000);
+    h.setReuse(false);
     h.setFollowRedirects(HTTPC_DISABLE_FOLLOW_REDIRECTS);
-    return h.begin(client, String(Config::baseUrl) + path);
+    String url = String(Config::baseUrl) + path;
+    bool ok;
+    if (secure()) {
+      if (time(nullptr) < 1767225600) return false;
+      tls.setHandshakeTimeout(5);
+      if (API_TLS_INSECURE) tls.setInsecure();
+      else tls.setCACert(apiRootCAs);
+      ok = h.begin(tls, url);
+    } else {
+      ok = String(Config::baseUrl).startsWith("http://") && h.begin(plain, url);
+    }
+    if (!ok) { Serial.println("[API] begin failed"); h.end(); }
+    return ok;
   }
   void error(HTTPClient& h, int code) {
+    if (code < 0) {
+      Serial.printf("[API] %s transport/TLS error %d: %s\n", secure() ? "HTTPS" : "HTTP",
+                    code, HTTPClient::errorToString(code).c_str());
+      return;
+    }
     String body;
     BoundedBody sink(2048, body);
     h.writeToStream(&sink);
@@ -75,7 +99,7 @@ class ApiClient {
       StorageGuard g(s);
       if (!s.mounted) return;
       File old = LittleFS.open(s.path(slot, s.records[slot].bank), FILE_READ);
-      if (s.records[slot].version == version && old && validWav(old)) return;
+      if (!audioNeedsDownload(s.records[slot].version, version, old && validWav(old))) return;
       bank = 1 - s.records[slot].bank;
       if (LittleFS.totalBytes() - LittleFS.usedBytes() < expected + 8192) {
         Serial.println("[AUDIO] insufficient free FS space");
@@ -83,9 +107,12 @@ class ApiClient {
       }
     }
     WiFiClient c;
+    WiFiClientSecure tls;
     HTTPClient h;
-    if (!begin(h, c, m["path"].as<String>())) return;
+    if (!begin(h, c, tls, m["path"].as<String>())) return;
     int code = h.GET();
+    Serial.printf("[AUDIO] %s GET slot=%d HTTP %d version=%lld\n",
+                  secure() ? "HTTPS" : "HTTP", slot, code, (long long)version);
     if (code != 200) {
       error(h, code);
       h.end();
@@ -129,11 +156,13 @@ class ApiClient {
   }
   void heartbeat() {
     WiFiClient c;
+    WiFiClientSecure tls;
     HTTPClient h;
-    if (!begin(h, c, endpoint("/heartbeat"))) return;
+    if (!begin(h, c, tls, endpoint("/heartbeat"))) return;
     h.addHeader("Content-Type", "application/json");
     int code = h.POST("{}");
     lastCode = code;
+    Serial.printf("[API] %s heartbeat HTTP %d\n", secure() ? "HTTPS" : "HTTP", code);
     if (code != 200) {
       error(h, code);
       h.end();
@@ -165,6 +194,9 @@ class ApiClient {
         return;
       }
     }
+    Serial.printf("[API] versions arrive=%lld leave=%lld\n",
+                  (long long)d["arrive_audio"]["version"].as<int64_t>(),
+                  (long long)d["leave_audio"]["version"].as<int64_t>());
     download(d["arrive_audio"], 0);
     download(d["leave_audio"], 1);
   }
@@ -172,8 +204,9 @@ class ApiClient {
     String j = events.front();
     if (j.isEmpty()) return;
     WiFiClient c;
+    WiFiClientSecure tls;
     HTTPClient h;
-    if (!begin(h, c, endpoint("/events"))) return;
+    if (!begin(h, c, tls, endpoint("/events"))) return;
     h.addHeader("Content-Type", "application/json");
     int code = h.POST(j);
     if (code == 200 || code == 201) {
@@ -187,13 +220,20 @@ class ApiClient {
   void run() {
     uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000,
              wifiAt = millis() - 15000;
-    bool ntpStarted = false;
+    bool ntpStarted = false, wasConnected = false, clockReady = false;
+    uint32_t clockLogAt = millis() - 20000;
     for (;;) {
       uint32_t now = millis();
-      if (WiFi.status() != WL_CONNECTED) {
+      bool connected = WiFi.status() == WL_CONNECTED;
+      if (connected != wasConnected) {
+        Serial.println(connected ? "[WiFi] connected" : "[WiFi] disconnected");
+        wasConnected = connected;
+      }
+      if (!connected) {
         if (now - wifiAt >= 15000) {
           wifiAt = now;
           WiFi.disconnect();
+          Serial.println("[WiFi] connecting/retrying");
           WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
         }
       } else {
@@ -201,6 +241,15 @@ class ApiClient {
           configTime(0, 0, "pool.ntp.org", "time.google.com");
           ntpStarted = true;
         }
+        if (secure() && time(nullptr) < 1767225600) {
+          if (now - clockLogAt >= 20000) {
+            clockLogAt = now;
+            Serial.println("[TLS] waiting for NTP; saved audio remains available");
+          }
+          vTaskDelay(pdMS_TO_TICKS(50));
+          continue;
+        }
+        if (!clockReady) { clockReady = true; Serial.println("[TIME] clock ready for API"); }
         if (requested.exchange(false) || now - hb >= Config::heartbeatMs) {
           hb = now;
           heartbeat();
@@ -219,6 +268,8 @@ class ApiClient {
   void request() { requested = true; }
   int code() { return lastCode.load(); }
   bool start() {
+    Serial.printf("[API] base=%s device=%s TLS=%s\n", Config::baseUrl, Config::deviceId,
+                  API_TLS_INSECURE ? "INSECURE DEVELOPMENT" : "CA verified");
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     return xTaskCreate(task, "rails-api", 12288, this, 1, nullptr) == pdPASS;
