@@ -8,6 +8,8 @@ export type DeviceStatus = {
   online: boolean;
   last_seen_at?: string | null;
   message_audio?: AudioMeta | null;
+  leave_audio?: AudioMeta | null;
+  arrive_audio?: AudioMeta | null;
   message_count?: number;
   message_updated_at?: string | null;
 };
