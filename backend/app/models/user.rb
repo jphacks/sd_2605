@@ -8,9 +8,13 @@ class User < ApplicationRecord
   validates :email, presence: true, uniqueness: true, format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :google_sub, uniqueness: true, allow_nil: true, length: { maximum: 255 }
   validates :password, presence: true, on: :create, unless: :google_account?
-  validates :password, length: { minimum: 8 }, if: -> { password.present? }
+  validates :password,
+    length: { minimum: 8, maximum: ActiveModel::SecurePassword::MAX_PASSWORD_LENGTH_ALLOWED },
+    if: -> { password.present? }
 
   def self.from_google_identity(payload)
+    return nil unless payload.is_a?(Hash)
+
     sub = payload["sub"].to_s
     email = payload["email"].to_s.strip.downcase
     return nil unless google_identity_acceptable?(sub, email, payload["email_verified"])

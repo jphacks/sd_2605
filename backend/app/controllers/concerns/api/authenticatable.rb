@@ -28,6 +28,8 @@ module Api
         "メールアドレスの形式が正しくありません。"
       elsif user.errors.of_kind?(:password, :blank)
         "パスワードを入力してください。"
+      elsif user.errors.of_kind?(:password, :too_long)
+        "パスワードは72文字以内にしてください。"
       elsif user.errors.where(:password).any?
         "パスワードは8文字以上にしてください。"
       else

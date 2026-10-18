@@ -75,6 +75,22 @@ module Api
       assert_equal "Googleログインに失敗しました。もう一度お試しください。", response.parsed_body.dig("error", "message")
     end
 
+    test "rejects a Google payload that is not an identity" do
+      assert_no_difference -> { User.count } do
+        assert_nil User.from_google_identity(nil)
+        assert_nil User.from_google_identity("token")
+      end
+    end
+
+    test "reports Google as unavailable when its public keys cannot be fetched" do
+      with_google_verification(-> { raise Google::Auth::IDTokens::KeySourceError, "keys" }) do
+        post "/api/google_sessions", params: { credential: TOKEN }, as: :json
+      end
+
+      assert_response :service_unavailable
+      assert_equal "google_unavailable", response.parsed_body.dig("error", "code")
+    end
+
     test "rejects an invalid Google token" do
       with_google_verification(-> { raise Google::Auth::IDTokens::VerificationError, "bad" }) do
         assert_no_difference -> { User.count } do

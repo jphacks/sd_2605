@@ -47,6 +47,7 @@ export default function GoogleSignInButton({ disabled, onCredential, onError }: 
   onErrorRef.current = onError;
   disabledRef.current = disabled;
   const [clientId, setClientId] = useState<string | null>(null);
+  const [scriptFailed, setScriptFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,7 +81,9 @@ export default function GoogleSignInButton({ disabled, onCredential, onError }: 
         width: Math.max(Math.min(target.clientWidth, 400), 200),
       });
     }).catch(error => {
-      if (!cancelled) onErrorRef.current(error instanceof Error ? error.message : "Googleログインを読み込めませんでした。");
+      if (cancelled) return;
+      setScriptFailed(true);
+      onErrorRef.current(error instanceof Error ? error.message : "Googleログインを読み込めませんでした。");
     });
     return () => {
       cancelled = true;
@@ -88,7 +91,7 @@ export default function GoogleSignInButton({ disabled, onCredential, onError }: 
     };
   }, [clientId]);
 
-  if (!clientId) return null;
+  if (!clientId || scriptFailed) return null;
   return <>
     <div className={`google-signin ${disabled ? "is-busy" : ""}`} ref={buttonRef} aria-label="Googleでログイン" />
     <div className="login-divider">または</div>
