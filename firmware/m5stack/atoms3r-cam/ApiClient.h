@@ -56,8 +56,7 @@ class ApiClient {
     if (secure()) {
       if (time(nullptr) < 1767225600) return false;
       tls.setHandshakeTimeout(5);
-      if (API_TLS_INSECURE) tls.setInsecure();
-      else tls.setCACert(apiRootCAs);
+      tls.setCACert(apiRootCAs);
       ok = h.begin(tls, url);
     } else {
       ok = String(Config::baseUrl).startsWith("http://") && h.begin(plain, url);
@@ -210,7 +209,16 @@ class ApiClient {
     h.addHeader("Content-Type", "application/json");
     int code = h.POST(j);
     if (code == 200 || code == 201) {
-      bool ok = events.acknowledge(j);
+      String body;
+      BoundedBody sink(2048, body);
+      int received = h.writeToStream(&sink);
+      JsonDocument sent, reply;
+      bool valid = received >= 0 && !deserializeJson(sent, j) && !deserializeJson(reply, body) &&
+        sent["event_id"].is<const char*>() && reply["event_id"].is<const char*>() &&
+        sent["event_id"].as<String>() == reply["event_id"].as<String>() &&
+        reply["event_type"].is<const char*>() &&
+        sent["event_type"].as<String>() == reply["event_type"].as<String>();
+      bool ok = valid && events.acknowledge(j);
       Serial.printf("[EVENT] HTTP %d ack=%d\n", code, ok);
     } else
       error(h, code);
@@ -228,6 +236,7 @@ class ApiClient {
       if (connected != wasConnected) {
         Serial.println(connected ? "[WiFi] connected" : "[WiFi] disconnected");
         wasConnected = connected;
+        if (connected) requested = true;
       }
       if (!connected) {
         if (now - wifiAt >= 15000) {

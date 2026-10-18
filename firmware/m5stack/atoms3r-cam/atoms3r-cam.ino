@@ -6,14 +6,18 @@ Storage storage;
 #include "AudioManager.h"
 #include "EventManager.h"
 #include "ApiClient.h"
+#include "LocalAudioTest.h"
 AudioManager audio(storage);
 EventManager events(storage);
 ApiClient api(storage, events);
+#include "UartEventReceiver.h"
+UartEventReceiver receiver;
 bool storageOK = false;
 String serialLine;
 bool lineOverflow = false;
 
 void printStatus() {
+  receiver.printStatus();
   StorageGuard guard(storage);
   Serial.printf("[STATUS] device=%s wifi=%d ip=%s HTTP=%d FS=%d PSRAM=%u\n",
                 Config::deviceId, WiFi.status() == WL_CONNECTED,
@@ -32,17 +36,16 @@ void command(String line) {
   line.trim();
   line.toUpperCase();
   if (line.isEmpty()) return;
-  if (line == "LEFT_TO_RIGHT" || line == "RIGHT_TO_LEFT") {
-    const int slot = line == "LEFT_TO_RIGHT" ? 1 : 0;
-    // Playback never depends on connectivity, NTP or successful event submission.
-    bool played = audio.play(slot);
-    Serial.printf("[DIRECTION] %s -> %s playback=%s status=%s\n", line.c_str(),
-                  slot ? "left_home" : "arrived_home", played ? "started" : "skipped",
-                  audio.status.c_str());
-    bool queued = events.enqueue(slot);
-    Serial.printf("[EVENT] queued=%d %s\n", queued, events.status.c_str());
+  if (line == "LEFT_TO_RIGHT" || line == "RIGHT_TO_LEFT" ||
+      line == "PLAY_LEAVE" || line == "PLAY_ARRIVE" || line == "REPLAY") {
+    using DoorProtocol::Action;
+    Action a = line == "REPLAY" ? Action::Replay :
+      (line == "LEFT_TO_RIGHT" || (line == "PLAY_LEAVE" && ATOM_LEFT_TO_RIGHT_IS_LEAVE) ||
+       (line == "PLAY_ARRIVE" && !ATOM_LEFT_TO_RIGHT_IS_LEAVE)) ? Action::LeftToRight : Action::RightToLeft;
+    Serial.printf("[QUEUE] accepted=%d\n", receiver.enqueue(a));
   } else if (line == "STATUS") printStatus();
   else if (line == "POLL") api.request();
+  else if (line == "TEST_CACHE") Serial.printf("[TEST_CACHE] %s\n", createTestCache(storage) ? "OK (test tones installed)" : "FAILED");
   else if (line == "CHIME") audio.testChime();
   else if (line == "INIT_FS") {
     StorageGuard guard(storage);
@@ -53,12 +56,14 @@ void command(String line) {
       api.request();
     }
   }
-  else Serial.println("Commands: LEFT_TO_RIGHT, RIGHT_TO_LEFT, STATUS, POLL, CHIME, INIT_FS, HELP (newline)");
+  else Serial.println("Commands: PLAY_LEAVE, PLAY_ARRIVE, REPLAY, LEFT_TO_RIGHT, RIGHT_TO_LEFT, STATUS, POLL, CHIME, TEST_CACHE, INIT_FS, HELP (newline)");
 }
 
 void setup() {
   auto cfg = M5.config();
   cfg.internal_imu = false;
+  cfg.external_imu = false;
+  cfg.external_rtc = false;
   cfg.internal_rtc = false;
   cfg.internal_mic = false;
   cfg.internal_spk = false;
@@ -76,6 +81,7 @@ void setup() {
   if (!storage.mounted) Serial.println("[FS] unavailable; see README first-provisioning procedure");
   // Keep Echo Base speaker active for repeated WAV playback; no camera/PSoC initialization.
   audio.begin();
+  if (!receiver.begin()) Serial.println("[UART] initialization FAILED");
   if (!api.start()) Serial.println("[API] task creation failed");
   command("HELP");
 }
@@ -84,6 +90,16 @@ void loop() {
   M5.update();
   if (!storageOK) { delay(20); return; }
   audio.update();
+  DoorProtocol::Action action;
+  if (!audio.busy() && receiver.next(action)) {
+    using DoorProtocol::Action;
+    if (action == Action::Replay) audio.replay();
+    else {
+      int slot = ((action == Action::LeftToRight) == bool(ATOM_LEFT_TO_RIGHT_IS_LEAVE)) ? 1 : 0;
+      audio.play(slot);
+      events.enqueue(slot);
+    }
+  }
   // Bounded, nonblocking newline parser; discard the entire oversized line.
   for (int n = 0; n < 128 && Serial.available(); ++n) {
     char c = Serial.read();

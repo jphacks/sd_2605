@@ -25,3 +25,8 @@ constexpr char baseUrl[] = RAILS_BASE_URL, deviceId[] = ENTRANCE_DEVICE_ID;
 constexpr uint32_t heartbeatMs = 20000, maxWav = 200 * 1024;
 constexpr bool formatIfMountFails = ATOM_FORMAT_FS_ON_FAILURE;
 }
+
+#ifndef ATOM_LEFT_TO_RIGHT_IS_LEAVE
+#define ATOM_LEFT_TO_RIGHT_IS_LEAVE true
+#endif
+static_assert(!API_TLS_INSECURE, "Atom firmware requires TLS certificate verification");

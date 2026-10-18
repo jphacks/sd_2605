@@ -6,3 +6,5 @@
 // First provisioning ONLY: true formats LittleFS if mounting fails.
 // Set back to false after initial provisioning to retain damaged FS for diagnosis.
 #define ATOM_FORMAT_FS_ON_FAILURE false
+// Reverse to false if the installation faces the other direction.
+#define ATOM_LEFT_TO_RIGHT_IS_LEAVE true
