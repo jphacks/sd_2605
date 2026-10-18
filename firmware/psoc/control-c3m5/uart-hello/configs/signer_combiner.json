@@ -1,0 +1,49 @@
+
+{
+    "schema-version": 1.0,
+		
+    "content":
+    [
+        {
+            "name": "hex-relocate",
+            "enabled": true,
+            "commands" :
+            [    
+                {
+                    "command" : "hex-relocate",
+                    "description": "relocate the hex to a programmable (S-BUS) address",
+                    "inputs" :
+                    [
+                        {
+                            "file" : "./../build/last_config/mtb-example-ce240786-empty-app.hex",
+							"regions": [
+							    {
+							        "start": "{{ CYMEM_CM33_0_S_m33_nvm_C_S_START }}",
+							        "size": "{{ CYMEM_CM33_0_S_m33_nvm_SIZE }}",
+							        "dest": "{{ CYMEM_CM33_0_S_m33_nvm_S_START }}"
+							    }
+							]
+                        }
+                    ],
+                    "outputs":
+                    [
+                        {
+                            "file" : "./../build/last_config/app_relocate_tmp.hex"
+                        }
+                    ]
+                },
+                {
+                    "command": "custom-script",
+                    "inputs": 
+                    [
+                        {
+                             "description": "Overwrite original hex with relocated one",
+                             "command-line": "mv ./../build/last_config/app_relocate_tmp.hex ./../build/last_config/mtb-example-ce240786-empty-app.hex",
+                             "shell": false
+                        }
+                      ]
+                }                
+            ]
+        }
+    ]
+}

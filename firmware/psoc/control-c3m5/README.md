@@ -1,3 +1,25 @@
+# Step 1: UART TX試験（今回の作業）
+
+独立プロジェクト [uart-hello/README.md](uart-hello/README.md) を使用してください。
+C3M5からSCB4のP3.3へ `HELLO,1\n`、`HELLO,2\n` を約1秒ごとに送信します。
+P3.2はRXとして設定しますが、本試験では受信処理は行いません。
+I²C、AI、Rails API、センサーフュージョンは本試験に含めていません。
+
+PowerShellでリポジトリルートから:
+
+```powershell
+.\firmware\psoc\control-c3m5\uart.ps1 getlibs
+.\firmware\psoc\control-c3m5\uart.ps1 build
+.\firmware\psoc\control-c3m5\uart.ps1 program
+```
+
+Atom側の最終受信試験は [uart-rx](../../m5stack/atoms3r-cam/tests/uart-rx/README.md) を使用します。
+HELLO,149〜HELLO,215の67行を欠番なく受信し、USB表示まで確認済みです。
+`atom-uart-monitor/` は初期切り分け用です。配線・書き込み・確認結果は各試験READMEに記載します。
+以下は既存統合アプリの記録で、今回の試験には使用しません。
+
+---
+
 # C3M5 communication hub
 
 PSoC Control C3M5 Evaluation Kit (`KIT_PSC3M5_EVK`) application for polling the E84 radar and vision targets over one I²C bus, fusing supported events, and forwarding actions to AtomS3R-CAM over UART. The application uses ModusToolbox 3.9 and the Infineon CAT1 HAL.

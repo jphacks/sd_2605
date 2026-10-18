@@ -8,3 +8,6 @@ mtb_shared/
 *.lst
 *.log
 *.bak
+uart-tx/
+uart-reference/
+safety-reference/

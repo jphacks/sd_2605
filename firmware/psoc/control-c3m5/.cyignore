@@ -1,0 +1,6 @@
+# Independent Step 1 projects must not be discovered by the legacy hub build.
+uart-hello
+atom-uart-monitor
+uart-tx
+uart-reference
+safety-reference
