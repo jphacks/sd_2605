@@ -63,6 +63,23 @@ export async function register(email: string, password: string, passwordConfirma
   await saveUserSession(response);
 }
 
+export async function getAuthConfig(): Promise<{ google_client_id: string | null }> {
+  const response = await fetch(`${API_BASE_URL}/auth_config`);
+  if (!response.ok) throw await readApiError(response, "ログイン設定を取得できませんでした。");
+  const data = await response.json() as { google_client_id?: string | null };
+  return { google_client_id: data.google_client_id || null };
+}
+
+export async function loginWithGoogle(credential: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/google_sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ credential }),
+  });
+  if (!response.ok) throw await readApiError(response, `Googleログインに失敗しました（HTTP ${response.status}）。`);
+  await saveUserSession(response);
+}
+
 export async function login(email: string, password: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/user_sessions`, {
     method: "POST",

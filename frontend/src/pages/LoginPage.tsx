@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { CheckCircle2, KeyRound, LockKeyhole, LogIn, UserPlus } from "lucide-react";
 import Robot from "../components/Robot";
-import { login, register } from "../api";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { login, loginWithGoogle, register } from "../api";
 
 type AuthMode = "login" | "register";
 type PasswordStrength = { score: number; level: number; label: string; hint: string };
@@ -82,6 +83,16 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
     } finally { setBusy(false); }
   };
 
+  const signInWithGoogle = async (credential: string) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await loginWithGoogle(credential);
+      onLogin();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Googleログインできませんでした。");
+    } finally { setBusy(false); }
+  };
+
   return <div className="login-screen">
     <section className="login-art">
       <div className="login-art-copy">
@@ -101,6 +112,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         <p className="eyebrow">{isRegister ? "A NEW HELLO" : "WELCOME HOME"}</p>
         <h2>{isRegister ? "アカウントを作成" : "おかえりなさい"}</h2>
         <p className="muted">{isRegister ? "メールアドレスとパスワードを登録してください。" : "ログインして、大切な人の声を受け取りましょう。"}</p>
+        <GoogleSignInButton disabled={busy} onCredential={credential => { void signInWithGoogle(credential); }} onError={setError} />
         <form className="login-form" onSubmit={submit} noValidate>
           <label htmlFor="login-email">メールアドレス
             <div className={`input-wrap ${touched.email && !emailValid ? "has-error" : touched.email && emailValid ? "is-valid" : ""}`}>
