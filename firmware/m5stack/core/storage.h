@@ -9,14 +9,30 @@ uint32_t u32(const uint8_t* p) {
   return uint32_t(p[0]) | (uint32_t(p[1]) << 8) | (uint32_t(p[2]) << 16) | (uint32_t(p[3]) << 24);
 }
 
+// Cards differ in how fast they accept the SPI clock during initialisation, and a
+// too-fast clock is a common cause of "card mount failed" on otherwise good cards.
+// Try the fast speed first and fall back so a slow card still works.
+constexpr uint8_t SD_CS_PIN = 4;
+const uint32_t SD_SPEEDS[] = {25000000, 10000000, 4000000};
+
+bool mountSd() {
+  for (uint32_t hz : SD_SPEEDS) {
+    SD.end();
+    if (SD.begin(SD_CS_PIN, SPI, hz)) {
+      Serial.printf("[%lu ms] SD mounted at %lu Hz; type=%u; %llu MB\n", millis(), hz,
+                    SD.cardType(), SD.cardSize() / (1024ULL * 1024ULL));
+      return true;
+    }
+    Serial.printf("[%lu ms] SD mount failed at %lu Hz\n", millis(), hz);
+  }
+  return false;
+}
+
 // Only PCM mono 16-bit 16 kHz. Bounds-check chunks and skip metadata/padding.
 bool openWelcome() {
   wav.close();
-  if (!mounted) {
-    SD.end();
-    mounted = SD.begin(4, SPI, 25000000);
-  }
-  if (!mounted) { sdError("card mount failed"); return false; }
+  if (!mounted) mounted = mountSd();
+  if (!mounted) { sdError("insert FAT32 SD card"); return false; }
   wav = SD.open(WELCOME_PATH, FILE_READ);
   if (!wav || wav.isDirectory()) {
     sdError("/welcome.wav missing"); wav.close(); return false;
