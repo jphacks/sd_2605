@@ -84,6 +84,8 @@ module Api
       get "/api/devices/#{@device.id}/status", headers: @headers
       assert_equal 1, response.parsed_body["message_count"]
       assert_equal 2, response.parsed_body.dig("message_audio", "version")
+      assert_equal 2, response.parsed_body.dig("arrive_audio", "version")
+      assert_nil response.parsed_body["leave_audio"]
     end
 
     test "rejects invalid wav data" do
@@ -137,6 +139,22 @@ module Api
       assert_response :ok
       assert_equal bytes, response.body.b
       assert_equal bytes, Device.find(@device.id).device_audios.find_by!(slot: "arrive").wav
+    end
+
+    test "status lists leave and arrive only after each slot is registered" do
+      get "/api/devices/#{@device.id}/status", headers: @headers
+      assert_nil response.parsed_body["leave_audio"]
+      assert_nil response.parsed_body["arrive_audio"]
+
+      post "/api/devices/#{@device.id}/message",
+        params: { slot: "leave", file: Rack::Test::UploadedFile.new(StringIO.new(wav_bytes), "audio/wav", true, original_filename: "voice.wav"), sender_name: "Family" },
+        headers: @headers
+      assert_response :created
+      get "/api/devices/#{@device.id}/status", headers: @headers
+      assert_equal 2, response.parsed_body.dig("leave_audio", "version")
+      assert_equal "Family", response.parsed_body.dig("leave_audio", "registered_by")
+      assert_nil response.parsed_body["arrive_audio"]
+      assert_nil response.parsed_body["message_audio"]
     end
 
     test "a leave upload does not replace arrive" do
