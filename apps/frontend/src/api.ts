@@ -1,5 +1,5 @@
 /** Web-facing Rails API. M5Stack uses its own unauthenticated device endpoints. */
-import { clearSession, getActiveDeviceId, getSession, saveSession } from "./devices";
+import { clearAllSessions, clearSession, getActiveDeviceId, getSession, getUserSession, saveSession, saveUserAccount } from "./devices";
 export { clearSession, getSession };
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 export type AudioMeta = { version: number; byte_size: number; content_type: "audio/wav"; path: string; file_name?: string; updated_at?: string | null; registered_by?: string | null };
@@ -44,11 +44,7 @@ async function saveUserSession(response: Response): Promise<void> {
   if (!data.token || !data.user?.id || !data.user.email) {
     throw new Error("認証サーバーから正しいユーザー情報を取得できませんでした。");
   }
-  saveSession({
-    token: data.token,
-    device_id: getActiveDeviceId(),
-    expires_at: data.expires_at,
-  });
+  saveUserAccount({ token: data.token, expires_at: data.expires_at, userId: data.user.id });
 }
 
 export async function register(email: string, password: string, passwordConfirmation: string): Promise<void> {
@@ -63,6 +59,23 @@ export async function register(email: string, password: string, passwordConfirma
   await saveUserSession(response);
 }
 
+export async function getAuthConfig(): Promise<{ google_client_id: string | null }> {
+  const response = await fetch(`${API_BASE_URL}/auth_config`);
+  if (!response.ok) throw await readApiError(response, "ログイン設定を取得できませんでした。");
+  const data = await response.json() as { google_client_id?: string | null };
+  return { google_client_id: data.google_client_id || null };
+}
+
+export async function loginWithGoogle(credential: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/google_sessions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ credential }),
+  });
+  if (!response.ok) throw await readApiError(response, `Googleログインに失敗しました（HTTP ${response.status}）。`);
+  await saveUserSession(response);
+}
+
 export async function login(email: string, password: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/user_sessions`, {
     method: "POST",
@@ -74,7 +87,7 @@ export async function login(email: string, password: string): Promise<void> {
 }
 
 export async function loginDevice(deviceId: string, password: string): Promise<void> {
-  const userSession = getSession();
+  const userSession = getUserSession();
   if (!userSession) throw new Error("デバイスを再ログインするには、先にアカウントへログインしてください。");
 
   const response = await fetch(`${API_BASE_URL}/sessions`, {
@@ -98,7 +111,7 @@ export async function loginDevice(deviceId: string, password: string): Promise<v
 }
 
 export async function registerDevice(deviceId: string, password: string): Promise<void> {
-  const userSession = getSession();
+  const userSession = getUserSession();
   if (!userSession) throw new Error("デバイスを登録するには、先にアカウントへログインしてください。");
 
   const id = deviceId.trim();
@@ -116,12 +129,18 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   // /devices/:id/... へのリクエストは、そのデバイスのセッションで認証する
   const target = /^\/devices\/([^/?#]+)/.exec(path);
   const deviceId = target ? decodeURIComponent(target[1]) : getActiveDeviceId();
-  const session = getSession(deviceId);
+  const deviceSession = deviceId ? getSession(deviceId) : null;
+  const session = deviceSession ?? getUserSession();
   if (session) headers.set("Authorization", `Bearer ${session.token}`);
   const response = await fetch(`${API_BASE_URL}${path}`, { ...init, headers });
-  if (response.status === 401 && session && getSession(deviceId)?.token === session.token) {
-    clearSession(deviceId);
-    window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } }));
+  if (response.status === 401 && session) {
+    if (deviceSession && getSession(deviceId)?.token === session.token) {
+      clearSession(deviceId);
+      window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } }));
+    } else if (!deviceSession && getUserSession()?.token === session.token) {
+      clearAllSessions();
+      window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } }));
+    }
   }
   if (!response.ok) {
     let message = `HTTP ${response.status}`;

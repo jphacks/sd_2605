@@ -7,6 +7,10 @@ export default function DeviceSwitcher({ compact = false }: { compact?: boolean 
   const { devices, activeId, hasSession } = useDevices();
   const navigate = useNavigate();
   const change = (id: string) => { if (!setActiveDevice(id)) navigate("/devices"); };
+  if (!devices.length) return <div className={`device-switcher ${compact ? "is-compact" : ""}`}>
+    {!compact && <span className="device-switcher-label">操作中のロボット</span>}
+    <p className="device-switcher-empty">未登録</p>
+  </div>;
   return <div className={`device-switcher ${compact ? "is-compact" : ""}`}>
     {!compact && <label htmlFor="device-select">操作中のロボット</label>}
     <div className="device-select-row">

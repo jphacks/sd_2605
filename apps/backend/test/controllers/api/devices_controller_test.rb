@@ -56,19 +56,39 @@ module Api
       assert_equal "invalid_params", response.parsed_body.dig("error", "code")
     end
 
-    test "does not allow another user to claim an existing device id" do
-      Device.create!(id: "entrance-2", user: @user, password: "device-pass-1")
+    test "adds another user who knows the password without changing the registrant" do
+      device = Device.create!(id: "entrance-2", user: @user, password: "device-pass-1")
+      other_user = User.create!(email: "other@example.com", password: "password1")
+      other_token = JsonWebToken.encode(other_user.id).first
+
+      assert_no_difference -> { Device.count } do
+        post "/api/devices",
+          params: { device_id: "entrance-2", password: "device-pass-1" },
+          as: :json,
+          headers: { "Authorization" => "Bearer #{other_token}" }
+      end
+
+      assert_response :success
+      assert_equal "entrance-2", response.parsed_body["device_id"]
+      assert_equal @user, device.reload.user
+      assert_includes device.members, other_user
+      assert_includes device.members, @user
+    end
+
+    test "does not add another user when the device password is wrong" do
+      device = Device.create!(id: "entrance-2", user: @user, password: "device-pass-1")
       other_user = User.create!(email: "other@example.com", password: "password1")
       other_token = JsonWebToken.encode(other_user.id).first
 
       post "/api/devices",
-        params: { device_id: "entrance-2", password: "device-pass-1" },
+        params: { device_id: "entrance-2", password: "wrong-password" },
         as: :json,
         headers: { "Authorization" => "Bearer #{other_token}" }
 
       assert_response :conflict
       assert_equal "device_id_taken", response.parsed_body.dig("error", "code")
-      assert_equal @user, Device.find("entrance-2").user
+      assert_equal @user, device.reload.user
+      assert_not_includes device.members, other_user
     end
   end
 end

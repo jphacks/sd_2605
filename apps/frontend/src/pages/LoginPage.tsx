@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { CheckCircle2, KeyRound, LockKeyhole, LogIn, UserPlus } from "lucide-react";
 import Robot from "../components/Robot";
-import { login, register } from "../api";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { login, loginWithGoogle, register } from "../api";
 
 type AuthMode = "login" | "register";
 type PasswordStrength = { score: number; level: number; label: string; hint: string };
@@ -79,6 +80,16 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : mode === "register" ? "新規登録できませんでした。" : "ログインできませんでした。");
+    } finally { setBusy(false); }
+  };
+
+  const signInWithGoogle = async (credential: string) => {
+    setBusy(true); setError(""); setNotice("");
+    try {
+      await loginWithGoogle(credential);
+      onLogin();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Googleログインできませんでした。");
     } finally { setBusy(false); }
   };
 
@@ -183,6 +194,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             {isRegister ? <UserPlus size={16} /> : <LogIn size={16} />}{busy ? "処理中…" : isRegister ? "アカウントを作成" : "ログインしてつながる"}
           </button>
         </form>
+        <GoogleSignInButton disabled={busy} onCredential={credential => { void signInWithGoogle(credential); }} onError={setError} />
         <div className="auth-switch">{isRegister ? "すでにアカウントをお持ちですか？" : "はじめての方はこちら"} <button type="button" className="text-button" onClick={() => changeMode(isRegister ? "login" : "register")}>{isRegister ? "ログイン" : "新規登録"}</button></div>
         <div className="demo-hint">メールアドレスはアカウントへのログインに使います。パスワードは安全に保管されます。</div>
       </div>

@@ -32,11 +32,13 @@ test("permission denial after login preserves the user session and device regist
     return Response.json({ error: { code: "device_forbidden", message: "Permission denied" } }, { status: 403 });
   };
   await api.login("owner@example.com", "test-password");
+  assert.equal(devices.getActiveDeviceId(), "");
+  assert.deepEqual(JSON.parse(localStorage.getItem("tadaima.devices")), []);
   let expired = 0;
   const listener = () => expired++;
   window.addEventListener("tadaima:session-expired", listener);
   await assert.rejects(api.apiRequest(api.devicePath("/status")), error => error.status === 403);
-  assert.equal(devices.getSession().token, "valid-user");
+  assert.equal(devices.getUserSession().token, "valid-user");
   assert.equal(expired, 0);
   await api.registerDevice("my-device", "device-password");
   assert.equal(devices.getSession("my-device").token, "valid-user");
@@ -50,6 +52,45 @@ test("an actual invalid login still clears its session on 401", async () => {
   globalThis.fetch = async () => Response.json({ error: { code: "invalid_credentials" } }, { status: 401 });
   await assert.rejects(api.apiRequest(api.devicePath("/status")), error => error.status === 401);
   assert.equal(devices.getSession("my-device"), null);
+});
+
+test("google login posts the credential and stores the session", async () => {
+  devices.clearAllSessions();
+  let body;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url).endsWith("/google_sessions"), true);
+    assert.equal(init.method, "POST");
+    body = JSON.parse(init.body);
+    return Response.json({
+      token: "google-token",
+      expires_at: "2099-01-01T00:00:00Z",
+      user: { id: 9, email: "person@example.com" },
+    });
+  };
+  await api.loginWithGoogle("google-credential");
+  assert.equal(body.credential, "google-credential");
+  assert.equal(devices.getUserSession().token, "google-token");
+});
+
+test("google login shows the API error and does not store a session", async () => {
+  devices.clearAllSessions();
+  globalThis.fetch = async () => Response.json({
+    error: { code: "invalid_google_token", message: "Googleログインに失敗しました。もう一度お試しください。" },
+  }, { status: 401 });
+  await assert.rejects(
+    api.loginWithGoogle("bad"),
+    error => error.message === "Googleログインに失敗しました。もう一度お試しください。",
+  );
+  assert.equal(devices.getUserSession(), null);
+});
+
+test("auth config reads the Google client id", async () => {
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url).endsWith("/auth_config"), true);
+    assert.equal(init, undefined);
+    return Response.json({ google_client_id: "client-id" });
+  };
+  assert.deepEqual(await api.getAuthConfig(), { google_client_id: "client-id" });
 });
 
 test("a delayed 401 from the old login does not erase a new login", async () => {

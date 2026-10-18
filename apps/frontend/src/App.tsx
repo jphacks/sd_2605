@@ -9,12 +9,13 @@ import LoginPage from "./pages/LoginPage";
 import { clearAllSessions, useDevices } from "./devices";
 
 export default function App() {
-  // どれか1台でもログインしていれば認証済み。全デバイスのセッションが切れると自動でログイン画面へ戻る
-  const { authenticated } = useDevices();
+  // アカウントにログインしていれば認証済み。セッションが切れるとログイン画面へ戻る
+  const { authenticated, devices } = useDevices();
   const navigate = useNavigate();
+  const home = devices.length ? "/" : "/devices";
   const handleLogout = () => { clearAllSessions(); navigate("/login", { replace: true }); };
   return <Routes>
-    <Route path="/login" element={authenticated ? <Navigate to="/" replace /> : <LoginPage onLogin={() => navigate("/", { replace: true })} />} />
+    <Route path="/login" element={authenticated ? <Navigate to={home} replace /> : <LoginPage onLogin={() => navigate(home, { replace: true })} />} />
     <Route element={authenticated ? <Layout onLogout={handleLogout} /> : <Navigate to="/login" replace />}>
       <Route path="/" element={<HomePage />} />
       <Route path="/history" element={<HistoryPage />} />
@@ -22,6 +23,6 @@ export default function App() {
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/devices" element={<DevicesPage />} />
     </Route>
-    <Route path="*" element={<Navigate to={authenticated ? "/" : "/login"} replace />} />
+    <Route path="*" element={<Navigate to={authenticated ? home : "/login"} replace />} />
   </Routes>;
 }

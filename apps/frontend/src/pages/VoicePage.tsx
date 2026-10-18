@@ -129,7 +129,7 @@ export default function VoicePage() {
       form.append("slot", audioSlot);
       const result = await apiRequest<{ file_name?: string; version?: number; byte_size?: number }>(devicePath("/message"), { method: "POST", body: form });
       setIsPrepared(true);
-      setMessage(`「${active.name}」に${selectedSlot.label}用の音声を登録しました${result?.version ? `（バージョン ${result.version}）` : ""}。${playback}`);
+      setMessage(`「${active?.name ?? ""}」に${selectedSlot.label}用の音声を登録しました${result?.version ? `（バージョン ${result.version}）` : ""}。${playback}`);
     } catch (error) {
       setMessage(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "音声を登録できませんでした。接続先と入力内容を確認してください。");
     } finally { setSending(false); }
@@ -153,7 +153,7 @@ export default function VoicePage() {
       <section className="preview-card">
         <div className="section-heading"><div><h2>メッセージの確認</h2><p className="muted">保存前に再生して確認できます。</p></div><div className="preview-icon"><Volume2 size={18} /></div></div>
         {audio && audioUrl ? <div className="audio-preview"><div className="audio-file-icon"><Music2 size={20} /></div><div className="audio-file-info"><strong>録音したメッセージ</strong><small>{formatBytes(audio.size)} ・ 元の録音データ</small></div><audio controls src={audioUrl} /></div> : <div className="preview-empty"><div className="preview-empty-icon"><Mic size={23} /></div><strong>まだ録音されていません</strong><p>録音すると、ここで試聴できます。</p></div>}
-        <div className="voice-target">登録先：<strong>{active.name}</strong><small>{active.id}</small></div>
+        <div className="voice-target">登録先：<strong>{active?.name}</strong><small>{active?.id}</small></div>
         <div className="slot-choice" role="radiogroup" aria-label="再生するタイミング">{AUDIO_SLOTS.map(slot => <button type="button" key={slot.id} role="radio" aria-checked={audioSlot === slot.id} className={audioSlot === slot.id ? "is-selected" : ""} onClick={() => selectSlot(slot.id)} disabled={sending || recording}>{slot.id === "leave" ? <LogOut size={16} /> : <House size={16} />}<span><strong>{slot.label}</strong><small>{slot.phrase}</small></span></button>)}</div>
         <label className="sender-name-field">登録者名（ニックネーム）<input value={senderName} onChange={e => setSenderName(e.target.value)} maxLength={40} placeholder="例：お母さん、ゆうた" required /></label>
         <div className="format-info"><span>変換後の形式</span><strong>WAV · PCM 16bit · 16 kHz · モノラル</strong><small>最大5秒 / 200 KB以下</small></div>

@@ -18,6 +18,8 @@ services:
         fromDatabase:
           name: sd-2605-mobile-db
           property: connectionString
+      - key: GOOGLE_CLIENT_ID
+        sync: false
 
 databases:
   - name: sd-2605-mobile-db
