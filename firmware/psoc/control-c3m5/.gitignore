@@ -1,0 +1,10 @@
+build/
+libs/
+mtb_shared/
+*.launch
+*.elf
+*.hex
+*.map
+*.lst
+*.log
+*.bak
