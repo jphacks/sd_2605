@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { House, History, Mic, Settings2, LogOut, Cpu } from "lucide-react";
 import Robot from "./Robot";
 import DeviceSwitcher from "./DeviceSwitcher";
@@ -8,7 +8,7 @@ import { getDeviceName, useDevices } from "../devices";
 export default function Layout({ onLogout }: { onLogout: () => void }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { activeId } = useDevices();
+  const { activeId, devices } = useDevices();
   const [notice, setNotice] = useState("");
   useEffect(() => {
     const onExpired = (event: Event) => {
@@ -31,7 +31,7 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
     <main className="main-area">
       <header className="mobile-header"><span className="brand-dot"><Robot small /></span><strong>おかえりんく</strong><DeviceSwitcher compact /><button className="mobile-logout" onClick={onLogout} aria-label="すべてログアウト"><LogOut size={17} /></button></header>
       {notice && <div className="notice-wrap"><div className="inline-alert error" role="alert">{notice}<button className="text-button" onClick={() => setNotice("")}>閉じる</button></div></div>}
-      <Outlet key={outletKey} />
+      {devices.length === 0 && location.pathname !== "/devices" ? <Navigate to="/devices" replace /> : <Outlet key={outletKey} />}
     </main>
     <nav className="mobile-nav"><NavLink to="/" end><House size={19} /><span>ホーム</span></NavLink><NavLink to="/history"><History size={19} /><span>履歴</span></NavLink><NavLink to="/voice"><Mic size={19} /><span>メッセージ</span></NavLink><NavLink to="/settings"><Settings2 size={19} /><span>情報</span></NavLink></nav>
   </div>;

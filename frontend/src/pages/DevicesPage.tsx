@@ -188,7 +188,7 @@ export default function DevicesPage() {
                   {authed && !isActive && <button className="button button-outline" onClick={() => setActiveDevice(d.id)}>このデバイスを使う</button>}
                   {!authed && <button className="button button-outline" onClick={() => { setReauth(reauth === d.id ? null : d.id); setReauthPassword(""); setError(""); }}><LockKeyhole size={14} />再ログイン</button>}
                   <button className="text-button device-icon-button" onClick={() => { setEditing(d.id); setDraft(d.name); }} title="表示名を変更" aria-label={`${d.name}の表示名を変更`}><Pencil size={15} /></button>
-                  <button className="text-button device-icon-button" onClick={() => remove(d.id, d.name)} disabled={devices.length <= 1} title={devices.length <= 1 ? "最後の1台は一覧から外せません" : "一覧から外す"} aria-label={`${d.name}を一覧から外す`}><Trash2 size={15} /></button>
+                  <button className="text-button device-icon-button" onClick={() => remove(d.id, d.name)} title="一覧から外す" aria-label={`${d.name}を一覧から外す`}><Trash2 size={15} /></button>
                 </div>
                 {reauth === d.id && !authed && <form className="device-reauth" onSubmit={e => void reauthSubmit(e, d.id)}>
                   <p className="device-reauth-hint muted">登録時に設定したパスワードを入力してください。</p>
