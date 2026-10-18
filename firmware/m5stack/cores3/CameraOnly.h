@@ -1,7 +1,8 @@
 #pragma once
 #include <M5Unified.h>
 #include <algorithm>
-#include "TouchInput.h"
+#include "CameraScreenTouch.h"
+#include "Faces.h"
 #include "Config.h"
 #include "Storage.h"
 // Shared device state precedes camera/audio application headers.
@@ -19,7 +20,29 @@ bool cameraStorageOK = false;
 PirFusion pirFusion;
 CameraMotionDetector::Result fusionCandidate;
 CameraMotionDetector vision;
-TouchInput cameraTouch;
+CameraScreenTouch cameraTouch;
+bool cameraDebugScreen = false;
+bool cameraScreenDirty = true;
+M5Canvas cameraFaceCanvas(&M5.Display);
+bool cameraFaceBuffered = false;
+uint8_t cameraFaceIndex = 0;
+const FaceCharacter cameraFaces[] = {BOY, GIRL, FRIEND};
+const char* cameraFaceNames[] = {"BOY", "GIRL", "FRIEND"};
+
+void cameraDrawFace(uint32_t now) {
+  // Blink once every four seconds; redraw only when the expression changes.
+  uint32_t phase = now % 4000;
+  int blink = phase < 120 ? phase * 100 / 120 : phase < 240 ? (240 - phase) * 100 / 120 : 0;
+  int mood = M5.Speaker.isPlaying() ? MOOD_SING : MOOD_IDLE;
+  static int previousBlink = -1, previousMood = -1;
+  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood) return;
+  if (cameraFaceBuffered) {
+    drawFace(cameraFaceCanvas, mood, blink, cameraFaces[cameraFaceIndex]);
+    cameraFaceCanvas.pushSprite(0, 0);
+  } else drawFace(M5.Display, mood, blink, cameraFaces[cameraFaceIndex]);
+  previousBlink = blink; previousMood = mood;
+  cameraScreenDirty = false;
+}
 String cameraMessage = "Starting camera...";
 uint32_t cameraMessageAt = 0;
 void cameraNotify(const String& text) { cameraMessage = text; cameraMessageAt = millis(); }
@@ -51,6 +74,19 @@ void cameraDrawMapping() {
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
 }
 
+void cameraDrawDebugControls() {
+  M5.Display.fillScreen(TFT_BLACK);
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+  cameraDrawMapping();
+  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT"};
+  M5.Display.setTextSize(1);
+  for (int i = 0; i < 6; ++i) {
+    int x = (i % 3) * 107, y = 166 + (i / 3) * 37;
+    M5.Display.drawRect(x, y, 106, 37, TFT_DARKGREY);
+    M5.Display.drawString(labels[i], x + 8, y + 13);
+  }
+}
+
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
   if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
@@ -80,6 +116,7 @@ int cameraReadTouch(uint32_t now) {
   readAt = now;
   uint8_t data[5] = {};
   bool valid = M5.In_I2C.readRegister(0x38, 0x02, data, sizeof(data), 400000);
+  if (!valid) return -1;
   bool pressed = valid && (data[0] & 15) > 0 && (data[0] & 15) <= 2 && (data[1] >> 6) != 1;
   m5gfx::touch_point_t point = {};
   if (pressed) {
@@ -87,7 +124,7 @@ int cameraReadTouch(uint32_t now) {
     point.y = ((data[3] & 15) << 8) | data[4];
     M5.Display.convertRawXY(&point, 1);
   }
-  int action = cameraTouch.poll(now, pressed, point.x, point.y, true);
+  int action = cameraTouch.poll(now, pressed, point.x, point.y, cameraDebugScreen);
   if (action >= 0) Serial.printf("[TOUCH] x=%d y=%d action=%d\n", point.x, point.y, action);
   return action;
 }
@@ -110,20 +147,18 @@ void setup() {
   M5.Speaker.setVolume(128);
   cameraStorageOK = cameraStorage.begin();
   if (cameraStorageOK) {
+    cameraFaceIndex = cameraStorage.prefs.getUChar("faceIndex", 0) % 3;
     vision.invertArrivalDeparture.store(cameraStorage.prefs.getBool(
         "invertMap", MotionDirectionConfig::invertArrivalDeparture));
     cameraVoiceBegin();
     if (!cameraApi.start()) Serial.println("[API] task creation failed");
   } else Serial.println("[FS] NVS/mutex initialization failed");
-  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  cameraDrawMapping();
-  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT"};
-  M5.Display.setTextSize(1);
-  for (int i = 0; i < 6; ++i) {
-    int x = (i % 3) * 107, y = 166 + (i / 3) * 37;
-    M5.Display.drawRect(x, y, 106, 37, TFT_DARKGREY);
-    M5.Display.drawString(labels[i], x + 8, y + 13);
-  }
+  cameraFaceCanvas.setColorDepth(16);
+  cameraFaceCanvas.setPsram(true);
+  cameraFaceBuffered = cameraFaceCanvas.createSprite(320, 240) != nullptr;
+  if (!cameraFaceBuffered) Serial.println("[UI] Face canvas unavailable; drawing directly");
+  cameraDrawFace(millis());
+  Serial.printf("[UI FACE] restored=%s\n", cameraFaceNames[cameraFaceIndex]);
   Serial.printf("[BOOT] CAMERA MOTION; LTR553=UNUSED WiFi=ON speaker=%d\n", cameraSpeakerOK);
   Serial.printf("[DIRECTION] minDx=%.0f startFrames=%u minFrames=%u endFrames=%u cooldown=%lu mirror=%d invertMap=%d\n",
                 MotionDirectionConfig::minDisplacement, MotionDirectionConfig::startFrames,
@@ -160,6 +195,22 @@ void loop() {
       case 'i': action = 6; break;
     }
   }
+  if (action == CameraScreenTouch::nextFace) {
+    cameraFaceIndex = (cameraFaceIndex + 1) % 3;
+    bool saved = false;
+    if (cameraStorageOK) {
+      StorageGuard guard(cameraStorage);
+      saved = cameraStorage.prefs.putUChar("faceIndex", cameraFaceIndex) == 1;
+    }
+    cameraScreenDirty = true;
+    Serial.printf("[UI FACE] selected=%s saved=%d\n", cameraFaceNames[cameraFaceIndex], saved);
+  }
+  if (action == CameraScreenTouch::toggleScreen) {
+    cameraDebugScreen = !cameraDebugScreen;
+    cameraScreenDirty = true;
+    if (cameraDebugScreen) cameraDrawDebugControls();
+    Serial.println(cameraDebugScreen ? "[UI SCREEN] DEBUG" : "[UI SCREEN] FACE");
+  }
   if (action == 6) {
     bool invert = !vision.invertArrivalDeparture.load();
     bool saved = false;
@@ -168,7 +219,7 @@ void loop() {
       saved = cameraStorage.prefs.putBool("invertMap", invert) == 1;
     }
     vision.invertArrivalDeparture.store(invert);
-    cameraDrawMapping();
+    if (cameraDebugScreen) cameraDrawMapping();
     cameraNotify(saved ? "Map swapped / SAVED" : "Map swapped / NOT SAVED");
   } else if (action == 7 || action == 8) {
     int threshold = vision.thresholdPercent.load() + (action == 7 ? -1 : 1);
@@ -210,12 +261,13 @@ void loop() {
     }
   }
   static uint32_t previewAt = 0;
-  if (uint32_t(now - previewAt) >= MotionDirectionConfig::previewIntervalMs) {
+  if (cameraDebugScreen && uint32_t(now - previewAt) >= MotionDirectionConfig::previewIntervalMs) {
     previewAt = now;
     vision.snapshot(true);
   }
+  if (!cameraDebugScreen) cameraDrawFace(now);
   static uint32_t drawAt = 0;
-  if (now - drawAt >= 200) {
+  if (cameraDebugScreen && (cameraScreenDirty || now - drawAt >= 200)) {
     drawAt = now;
     auto state = vision.snapshot(false);
     if (state.count != cameraLastCount) {
@@ -239,7 +291,7 @@ void loop() {
     M5.Display.setTextSize(1);
     M5.Display.setTextPadding(152);
     for (int i = 0; i < 7; ++i) {
-      if (previous[i] != rows[i]) { M5.Display.drawString(rows[i], 168, 28 + i * 16); previous[i] = rows[i]; }
+      if (cameraScreenDirty || previous[i] != rows[i]) { M5.Display.drawString(rows[i], 168, 28 + i * 16); previous[i] = rows[i]; }
     }
     // Correlate the exact LCD label with the worker's finalized event sequence.
     static String lastDirectionLabel;
@@ -252,7 +304,7 @@ void loop() {
     }
     String footer = cameraNoticeActive(millis(), cameraMessageAt) ? cameraMessage :
                     cameraLiveStatus(state.status, vision.enabled.load(), state.trackState, state.sceneClear);
-    if (footer != previous[7]) {
+    if (cameraScreenDirty || footer != previous[7]) {
       M5.Display.setTextPadding(320);
       M5.Display.drawString(footer, 0, 151);
       Serial.println("[UI STATUS] " + footer);
@@ -260,13 +312,14 @@ void loop() {
     }
     static String previousNetwork;
     String network = cameraNetworkStatus();
-    if (network != previousNetwork) {
+    if (cameraScreenDirty || network != previousNetwork) {
       M5.Display.setTextPadding(152);
       M5.Display.drawString(network, 168, 140);
       Serial.println("[UI WiFi] " + network);
       previousNetwork = network;
     }
     M5.Display.setTextPadding(0);
+    cameraScreenDirty = false;
   }
   delay(2);
 }
