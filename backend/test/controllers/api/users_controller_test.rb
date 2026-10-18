@@ -39,6 +39,23 @@ module Api
       assert_equal "メールアドレスの形式が正しくありません。", response.parsed_body.dig("error", "message")
     end
 
+    test "rejects a Google subject sent instead of a password" do
+      assert_no_difference -> { User.count } do
+        post "/api/users", params: { email: "user@example.com", google_sub: "attacker", password: "" }, as: :json
+      end
+
+      assert_response :unprocessable_entity
+      assert_equal "パスワードを入力してください。", response.parsed_body.dig("error", "message")
+    end
+
+    test "rejects a password longer than 72 characters" do
+      post "/api/users", params: { email: "user@example.com", password: "a" * 73 }, as: :json
+
+      assert_response :unprocessable_entity
+      assert_equal "パスワードは72文字以内にしてください。", response.parsed_body.dig("error", "message")
+      assert_nil User.find_by(email: "user@example.com")
+    end
+
     test "rejects a short password" do
       post "/api/users", params: { email: "user@example.com", password: "short" }, as: :json
 

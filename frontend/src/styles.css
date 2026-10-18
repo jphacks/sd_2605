@@ -140,3 +140,7 @@
   .device-reauth{padding-left:0}
   .device-reauth .device-reauth-hint{align-self:flex-start}
 }
+.google-signin{display:flex;justify-content:center;width:100%;min-height:44px}
+.google-signin.is-busy{pointer-events:none;opacity:.55}
+.login-divider{display:flex;align-items:center;gap:12px;margin:18px 0 14px;color:#a3aaa0;font-size:11px}
+.login-divider:before,.login-divider:after{content:"";height:1px;flex:1;background:#eeede3}

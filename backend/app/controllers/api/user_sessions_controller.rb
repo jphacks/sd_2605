@@ -4,7 +4,7 @@ module Api
 
     def create
       user = User.find_by(email: normalized_email)
-      unless user&.authenticate(password)
+      unless user&.password_digest.present? && user.authenticate(password)
         return render json: {
           error: {
             code: "invalid_credentials",

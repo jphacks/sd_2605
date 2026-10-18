@@ -30,6 +30,18 @@ module Api
       assert_equal "メールアドレスまたはパスワードが正しくありません。", response.parsed_body.dig("error", "message")
     end
 
+    test "rejects password login for a Google-only account" do
+      User.create!(email: "google@example.com", google_sub: "google-sub-1")
+
+      post "/api/user_sessions",
+        params: { email: "google@example.com", password: "password1" },
+        as: :json
+
+      assert_response :unauthorized
+      assert_equal "invalid_credentials", response.parsed_body.dig("error", "code")
+      assert_equal "メールアドレスまたはパスワードが正しくありません。", response.parsed_body.dig("error", "message")
+    end
+
     test "rejects an unknown email with the same error" do
       post "/api/user_sessions",
         params: { email: "missing@example.com", password: "password1" },

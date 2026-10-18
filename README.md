@@ -15,7 +15,19 @@ docker compose up --build
 
 開発用の DB パスワードは `password` です。
 
-ログインはメールアドレスとパスワードです。デバイスID `entrance-1`、仮パスワード `tadaima-demo` の仮ログインは開発・テスト環境のみで有効です。
+ログインはメールアドレスとパスワードです。`GOOGLE_CLIENT_ID` を設定すると、同じ画面からGoogleアカウントでもログインできます。デバイスID `entrance-1`、仮パスワード `tadaima-demo` の仮ログインは開発・テスト環境のみで有効です。
+
+## Googleログイン
+
+Google Cloud Console で OAuth クライアントID（ウェブアプリケーション）を作り、承認済みのJavaScript生成元に `http://localhost:5173` と公開URL（例: `https://<service>.onrender.com`）を登録します。クライアントシークレットは使いません。
+
+ローカルではリポジトリ直下の `.env` に次を書いてから `docker compose up` します。このファイルはコミットしません。
+
+```bash
+GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
+```
+
+未設定のときはGoogleのボタンを出さず、メールアドレスとパスワードのログインだけ使えます。Render では Blueprint の `GOOGLE_CLIENT_ID` に同じクライアントIDを入れます。メールアドレスが確認済みで、既存アカウントと同じ場合は、そのアカウントにログインします。
 
 ## デプロイ（Render）
 
@@ -31,6 +43,7 @@ docker compose up --build
 - `RAILS_ENV=production`
 - `SECRET_KEY_BASE`（Render が生成）
 - `DATABASE_URL`（PostgreSQL の接続文字列）
+- `GOOGLE_CLIENT_ID`（Googleログインを使うとき。Blueprint では手入力）
 
 push するたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。発表の直前に一度開いて起こしておいてください。無料の PostgreSQL は作成から30日で失効します。
 
