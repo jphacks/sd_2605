@@ -1,3 +1,7 @@
+# Step 2
+
+[双方向UART ACK試験](uart-hello/STEP2.md) を追加しました。以下のStep 1は過去記録です。
+
 # Step 1: UART TX試験（今回の作業）
 
 独立プロジェクト [uart-hello/README.md](uart-hello/README.md) を使用してください。

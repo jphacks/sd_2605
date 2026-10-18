@@ -1,3 +1,7 @@
+# Step 2
+
+[双方向UART ACK試験の現行手順](STEP2.md) を使用してください。以下はStep 1の過去記録です。
+
 # Step 1: C3M5 → AtomS3R-CAM UART送信試験
 
 起動初期化後約1秒で `HELLO,1\n`、以降約1秒ごとに十進連番を送信します。

@@ -1,3 +1,8 @@
+# UART ACK返信のStep 2試験
+
+独立スケッチ [tests/uart-ack](tests/uart-ack/README.md) でHELLOへのACK返信を検証します。
+既存の音声再生コードとStep 1の受信専用スケッチは保持しています。
+
 # UART受信だけのStep 1試験
 
 独立した最小スケッチとビルド・書き込み手順は [tests/uart-rx/README.md](tests/uart-rx/README.md) にあります。
