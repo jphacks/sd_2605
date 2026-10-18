@@ -41,9 +41,12 @@ Webアプリから録音・登録した大切な人の音声メッセージを�
 
 <p align="center">
 
-  <img src="docs/images/device.png" alt="CoreS3の顔画面とデバッグ画面、PIRセンサー" width="720">
+  <img src="docs/images/cores3-face.png" alt="CoreS3の顔画面（実装に基づく再現）" width="360">
+  <img src="docs/images/cores3-debug.png" alt="CoreS3のデバッグ画面（実装に基づく再現、映像・数値はサンプル）" width="360">
 
 </p>
+
+左は顔画面、右はデバッグ画面です。実装の描画処理に基づいて再現した画像で、実機のスクリーンショットではありません。デバッグ画面のカメラ映像・数値・状態はサンプルです。
 
 ### 特長
 
