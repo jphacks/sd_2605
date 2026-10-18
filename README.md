@@ -1,7 +1,7 @@
 # おかえりんく
 
 <p align="center">
-  <img src="docs/images/logo.jpg" alt="okaelink" width="420">
+  <img src="docs/images/okaelink_logo_animated.gif" alt="おかえりんく" width="420">
 </p>
 
 ## 各種リンク
@@ -14,8 +14,6 @@
 <p align="center">
   <img src="docs/images/qr.png" alt="アプリのQRコード" width="160">
 </p>
-
-<p align="center">スマートフォンでのアクセスがおすすめです。</p>
 
 大切な人の声で「いってらっしゃい」「おかえり」を届ける、玄関向けの音声メッセージデバイスです。
 
