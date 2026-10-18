@@ -51,17 +51,26 @@ void cameraVoiceBegin() {
   cameraVoiceRefresh(0);
 }
 void cameraPlayVoice(PassageAction action) {
+  // Playback uses the saved buffers/settings, independently of Wi-Fi, API and NTP.
   if (!cameraStorageOK) { Serial.println("[VOICE] storage unavailable"); return; }
-  if (M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) return;
+  if (M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) {
+    Serial.println("[VOICE] skipped: speaker busy");
+    return;
+  }
   int slot = action == PassageAction::ARRIVE ? 0 : 1;
   bool enabled;
   uint8_t volume;
   {
     StorageGuard guard(cameraStorage);
     enabled = slot ? cameraStorage.settings.leave : cameraStorage.settings.arrive;
-    volume = cameraStorage.settings.volume;
+    volume = cameraStorage.effectiveVolume();
   }
   M5.Speaker.setVolume((volume * 255 + 50) / 100);
+  if (!enabled || !cameraSpeakerOK || !cameraVoiceData[slot]) {
+    Serial.printf("[VOICE] %s skipped: enabled=%d speaker=%d savedAudio=%d volume=%u\n",
+                  actionName(action), enabled, cameraSpeakerOK, cameraVoiceData[slot] != nullptr, volume);
+    return;
+  }
   cameraVoiceReleased.store(false);
   bool started = enabled && cameraSpeakerOK && cameraVoiceData[slot] && !M5.Speaker.isPlaying() &&
                  M5.Speaker.playWav(cameraVoiceData[slot], cameraVoiceSize[slot], 1, 0);

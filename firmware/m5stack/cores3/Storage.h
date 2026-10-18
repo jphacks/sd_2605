@@ -18,6 +18,14 @@ class Storage {
   LocalSettings settings;
   AudioRecord records[2];
   bool leaveMode = false;
+  int16_t localVolume = -1;  // -1 follows the Web setting; guarded by mutex.
+  uint8_t effectiveVolume() const { return localVolume < 0 ? settings.volume : localVolume; }
+  bool setLocalVolume(int16_t value) {
+    if (value < -1 || value > 100) return false;
+    if (value != localVolume && prefs.putShort("localVolume", value) != 2) return false;
+    localVolume = value;
+    return true;
+  }
   void lock() { xSemaphoreTake(mutex, portMAX_DELAY); }
   void unlock() { xSemaphoreGive(mutex); }
   String key(int slot) { return slot ? "leave" : "arrive"; }
@@ -32,6 +40,8 @@ class Storage {
     settings.arrive = d["arrive"] | true;
     settings.volume = d["volume"] | 70;
     if (settings.volume > 100) settings.volume = 70;
+    localVolume = prefs.getShort("localVolume", -1);
+    if (localVolume < -1 || localVolume > 100) localVolume = -1;
     leaveMode = prefs.getBool("mode", false);
     for (int i = 0; i < 2; i++) {
       JsonDocument r;

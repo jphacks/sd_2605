@@ -9,6 +9,7 @@ class CameraScreenTouch {
  public:
   static constexpr int toggleScreen = 13;
   static constexpr int nextFace = 14;
+  static constexpr int volumeDown = 15, volumeUp = 16, volumeWeb = 17;
   int poll(uint32_t now, bool pressed, int x, int y, bool debug) {
     if (pressed) {
       if (!down) {
@@ -25,6 +26,10 @@ class CameraScreenTouch {
     down = false;
     if (held) return -1;
     if (!debug) return nextFace;
+    if (startY >= 166) {
+      int index = ((startY - 166) / 25) * 3 + startX / 107;
+      return index < 6 ? 7 + index : volumeDown + index - 6;
+    }
     TouchInput tap;
     return tap.poll(now, true, startX, startY, true);
   }

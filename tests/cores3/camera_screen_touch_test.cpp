@@ -8,11 +8,11 @@ int main() {
   assert(t.poll(1000, true, 20, 10, false) == 13);
   assert(t.poll(2500, true, 20, 10, true) == -1);
   assert(t.poll(2600, false, 0, 0, true) == -1);
-  assert(t.poll(3000, true, 150, 220, true) == -1);
+  assert(t.poll(3000, true, 150, 200, true) == -1);
   assert(t.poll(3100, false, 0, 0, true) == 11);
   assert(t.poll(3200, false, 0, 0, true) == -1);
-  assert(t.poll(4000, true, 150, 220, true) == -1);
-  assert(t.poll(5000, true, 150, 220, true) == 13);
+  assert(t.poll(4000, true, 150, 200, true) == -1);
+  assert(t.poll(5000, true, 150, 200, true) == 13);
   assert(t.poll(5100, false, 0, 0, false) == -1);
   assert(t.poll(6000, true, 150, 220, false) == -1);
   assert(t.poll(6100, false, 0, 0, false) == 14);
@@ -23,5 +23,11 @@ int main() {
   t.poll(7100, false, 0, 0, true);
   assert(t.poll(7200, true, 20, 10, true) == -1);
   assert(t.poll(7300, false, 0, 0, true) == 6);
+  for (int col = 0; col < 3; ++col) {
+    t.poll(8000 + col * 200, true, col * 107, 216, true);
+    assert(t.poll(8100 + col * 200, false, 0, 0, true) == 15 + col);
+  }
+  t.poll(9000, true, 319, 239, true);
+  assert(t.poll(9100, false, 0, 0, true) == 17);
   puts("Screen touch: hold threshold, one toggle per hold, suppressed controls and release taps passed");
 }

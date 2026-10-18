@@ -27,6 +27,11 @@
 
 # CoreS3 Render音声同期（2026-10-18）
 
+保存済みの挨拶音声はWi-Fi未接続・API停止・時刻未同期でも再生できます。起動時にLittleFSから読み込み、検知時は通信せず再生します。未取得または破損した音声はオフラインでは取得できないため、一度オンラインで同期してください。CHIME OFF、挨拶無効、音量0%、PIRの起動後30秒の準備期間や方向未確定時は自動発音しません。
+USB Serialの `a` でARRIVE、`l`（小文字エル）でLEAVEの保存音声を試聴できます。検知・CHIMEスイッチを介さず、保存済みの挨拶有効設定と音量に従います。`started=1`は再生開始要求の成功です。実際の発音は耳で別途確認してください。再生不可時はbusyやenabled/speaker/savedAudioをログに表示します。
+
+2026-10-18: 診断追加版のビルド・COM4書き込み・ハッシュ検証成功。Wi-Fiがconnecting/retryingの状態で保存済み両WAV（version 3）を読み込み、Serialのa/lでARRIVE/LEAVEともstarted=1を確認しました。ログはGit対象外の`build/cores3-offline-voice-serial.log`です。実際の発音と人の通過による自動再生は未確認です。
+
 画面右側の下段（PIR表示の下）にWi-Fi/API状態を表示します。`WiFi:CONNECTING`は接続中、`WiFi:NO SSID`は接続先が見つからない状態、`WiFi:CONNECT FAILED`は接続失敗、`WiFi:ON TIME WAIT`は時刻同期待ち、`WiFi:ON API:200`は接続済みで直近のheartbeat成功です。負のAPI値は通信/TLSエラー、200以外の正値はHTTPエラーです。状態変化時だけSerialへ`[UI WiFi]`を出力します。SSID・パスワードは画面やログへ出しません。
 
 COM4への状態表示版のビルド・書き込み・ハッシュ照合に成功しました。実機ログでWi-Fi接続、HTTPS heartbeat 200を3回、画面の`WiFi:ON API:200`描画、再起動後の保存WAV読込を確認済みです（arrive 26,144 bytes / leave 34,224 bytes、両version 1）。今回は同版なので再取得していません。実際の発音・人の通過による方向判定は別途確認してください。ログは`build/cores3-wifi-display-{upload,serial}.log`です。
@@ -633,3 +638,9 @@ API UIとの切り替えでボタンのラベルが正しく更新されるこ�
 ちらつき対策版のArduino CLIビルド成功: Flash 1,228,639 / 1,310,720 bytes（93%）、静的RAM 50,008 / 327,680 bytes（15%）。
 Canvas約53KBは実行時に別途確保します。ログは`build/cores3-display-buffer-build.log`です。
 書き込み・実機でのちらつき改善・タッチ操作の確認は今回未実施です。
+
+## デバッグ画面の音量調整
+
+下段の `VOL -` / `VOL +` で0〜100%を10%刻みで調整します。挨拶音声と `TEST SOUND` に適用し、0%は無音です。音量は本体のNVSに保存し、再起動後も維持します。
+右下に `LOCAL 70%` または `WEB 70%` のように設定元と現在値を表示します。ここをタップするとWebの音量設定へ戻ります。LOCAL中は本体設定を優先し、Webアプリの設定自体は変更しません。保存に失敗した場合は以前の音量を維持し、`SAVE FAILED` と表示します。
+操作ボタンは3列×3段です。画面を1秒長押しすると顔画面へ戻ります。

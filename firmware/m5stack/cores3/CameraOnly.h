@@ -78,12 +78,12 @@ void cameraDrawDebugControls() {
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
   cameraDrawMapping();
-  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT"};
+  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT", "VOL -", "VOL +", "VOL WEB"};
   M5.Display.setTextSize(1);
-  for (int i = 0; i < 6; ++i) {
-    int x = (i % 3) * 107, y = 166 + (i / 3) * 37;
-    M5.Display.drawRect(x, y, 106, 37, TFT_DARKGREY);
-    M5.Display.drawString(labels[i], x + 8, y + 13);
+  for (int i = 0; i < 9; ++i) {
+    int x = (i % 3) * 107, y = 166 + (i / 3) * 25;
+    M5.Display.drawRect(x, y, 106, 24, TFT_DARKGREY);
+    M5.Display.drawString(labels[i], x + 8, y + 8);
   }
 }
 
@@ -97,7 +97,31 @@ void handleMotionDirection(const CameraMotionDetector::Result& event) {
   cameraNotify(String(directionName(event.directionEvent.direction)) + " -> " + actionName(event.action));
 }
 
+uint8_t cameraApplyVolume() {
+  uint8_t volume = 50;
+  if (cameraStorageOK) {
+    StorageGuard guard(cameraStorage);
+    volume = cameraStorage.effectiveVolume();
+  }
+  M5.Speaker.setVolume((volume * 255 + 50) / 100);
+  return volume;
+}
+void cameraAdjustVolume(int action) {
+  if (!cameraStorageOK) { cameraNotify("Volume: storage unavailable"); return; }
+  bool saved;
+  {
+    StorageGuard guard(cameraStorage);
+    int value = action == CameraScreenTouch::volumeWeb ? -1 :
+        std::max(0, std::min(100, int(cameraStorage.effectiveVolume()) +
+            (action == CameraScreenTouch::volumeUp ? 10 : -10)));
+    saved = cameraStorage.setLocalVolume(value);
+  }
+  uint8_t volume = cameraApplyVolume();
+  cameraNotify(String("Volume ") + volume + "%" + (saved ? " SAVED" : " SAVE FAILED"));
+  cameraScreenDirty = true;
+}
 void cameraSound() {
+  cameraApplyVolume();
   bool started = cameraSpeakerOK && !M5.Speaker.isPlaying() && M5.Speaker.tone(1200, 300);
   Serial.printf("[SOUND] started=%d\n", started);
   if (started) Serial.println("[AUDIO] PLAY");
@@ -193,6 +217,8 @@ void loop() {
       case 't': action = 11; break;
       case 'r': action = 12; break;
       case 'i': action = 6; break;
+      case 'a': cameraPlayVoice(PassageAction::ARRIVE); break;
+      case 'l': cameraPlayVoice(PassageAction::LEAVE); break;
     }
   }
   if (action == CameraScreenTouch::nextFace) {
@@ -240,6 +266,8 @@ void loop() {
     cameraChime = !cameraChime;
     cameraNotify(cameraChime ? "Detection chime ON" : "Detection chime OFF");
   } else if (action == 11) cameraSound();
+  else if (action >= CameraScreenTouch::volumeDown && action <= CameraScreenTouch::volumeWeb)
+    cameraAdjustVolume(action);
   else if (action == 12) {
     auto state = vision.snapshot(false);
     cameraCountBase = state.count; cameraDirectionBase = state.directionCount;
@@ -310,6 +338,13 @@ void loop() {
       Serial.println("[UI STATUS] " + footer);
       previous[7] = footer;
     }
+    String volumeLabel = "VOL WEB";
+    if (cameraStorageOK) {
+      StorageGuard guard(cameraStorage);
+      volumeLabel = String(cameraStorage.localVolume < 0 ? "WEB " : "LOCAL ") + cameraStorage.effectiveVolume() + "%";
+    }
+    M5.Display.setTextPadding(90);
+    M5.Display.drawString(volumeLabel, 222, 224);
     static String previousNetwork;
     String network = cameraNetworkStatus();
     if (cameraScreenDirty || network != previousNetwork) {
