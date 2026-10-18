@@ -1,5 +1,22 @@
 # おかえりんく
 
+<p align="center">
+  <img src="docs/images/logo.jpg" alt="okaelink" width="420">
+</p>
+
+## 各種リンク
+
+- **アプリURL**: https://sd-2605-mobile.onrender.com/
+- スライドURL: https://canva.link/qu8e8hxn11fekr0
+
+公開アプリは Render の無料プランです。15分間アクセスがないとサーバーがスリープし、次に開いたときは起動まで数十秒かかります。
+
+<p align="center">
+  <img src="docs/images/qr.png" alt="アプリのQRコード" width="160">
+</p>
+
+<p align="center">スマートフォンでのアクセスがおすすめです。</p>
+
 大切な人の声で「いってらっしゃい」「おかえり」を届ける、玄関向けの音声メッセージデバイスです。
 
 - 本リポジトリ: [jphacks/sd_2605](https://github.com/jphacks/sd_2605)
@@ -17,15 +34,29 @@ Webアプリで録音・登録した短い音声を、玄関に置いたデバ�
 
 ハードウェアは **M5Stack CoreS3をメインに開発し、デモもCoreS3で実施しました**。内蔵カメラの動体検知・左右方向判定とPIRセンサーの照合を用い、Webから取得した音声を本体に保存して再生する構成です。
 
+<p align="center">
+  <img src="docs/images/device.png" alt="CoreS3の顔画面とデバッグ画面、PIRセンサー" width="720">
+</p>
+
 ### 特長
 
 #### 1. 大切な人の声を、外出・帰宅のタイミングに
 
 ブラウザで録音・試聴し、外出用（leave）と帰宅用（arrive）の音声を登録できます。音声はPCM 16bit・モノラル・16kHzのWAVに変換し、5秒以内のメッセージとして扱います。
 
+<p align="center">
+  <img src="docs/images/web-voice-mobile.png" alt="メッセージ登録画面（スマートフォン）" width="280">
+  <img src="docs/images/web-voice-pc.png" alt="メッセージ登録画面（PC）" width="720">
+</p>
+
 #### 2. Webと連携し、取得した音声は本体に保存
 
 CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較して更新します。取得済みの音声はLittleFSに保存するため、通信できない間もローカルで再生できます。
+
+<p align="center">
+  <img src="docs/images/web-home-mobile.png" alt="ホーム画面（スマートフォン）" width="280">
+  <img src="docs/images/web-home-pc.png" alt="ホーム画面（PC）" width="720">
+</p>
 
 #### 3. 顔のあるデバイスと、本体での操作
 
