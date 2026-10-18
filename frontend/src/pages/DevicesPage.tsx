@@ -151,7 +151,7 @@ export default function DevicesPage() {
     <section id="device-login-panel" className="device-tab-panel" role="tabpanel" aria-labelledby="device-login-tab" hidden={tab !== "login"}>
       <div className="device-panel-intro">
         <span className="device-panel-icon"><KeyRound size={19} /></span>
-        <div><h2>登録済みデバイスを追加</h2><p>デバイス本体の設定時に登録したIDとパスワードを入力してください。認証後、このブラウザの一覧に追加され、利用できるようになります。</p></div>
+        <div><h2>登録済みデバイスを追加</h2><p>デバイス本体の設定時に登録したIDとパスワードを入力してください。認証後、このアカウントの一覧に追加され、利用できるようになります。</p></div>
       </div>
       <form className="settings-card device-add-form" onSubmit={e => void addExistingDeviceSubmit(e)}>
         <label className="sender-name-field" htmlFor="existing-device-id">デバイスID
@@ -163,13 +163,13 @@ export default function DevicesPage() {
         </label>
         <button className="button button-primary device-submit" type="submit" disabled={busy || !existingId.trim() || !existingPassword}><LockKeyhole size={16} />{busy ? "認証しています…" : "このデバイスを追加"}</button>
       </form>
-      <section className="device-saved-section" aria-label="このブラウザのデバイス">
+      <section className="device-saved-section" aria-label="このアカウントのデバイス">
         <div className="section-heading device-panel-heading">
-          <div><h2>このブラウザのデバイス</h2><p className="muted">利用するデバイスを選ぶか、必要に応じてログインしてください。</p></div>
+          <div><h2>このアカウントのデバイス</h2><p className="muted">このアカウントで追加したデバイスだけを表示します。別のブラウザでは、IDとパスワードでもう一度追加してください。</p></div>
           <button className="button button-outline" onClick={() => void load()}><RefreshCw size={15} />状態を更新</button>
         </div>
         {devices.length === 0
-          ? <div className="activity-card device-empty-state"><Cpu size={24} /><p>このブラウザには、まだデバイスがありません。</p><span>上のフォームから登録済みデバイスを追加してください。</span></div>
+          ? <div className="activity-card device-empty-state"><Cpu size={24} /><p>このアカウントには、まだデバイスがありません。</p><span>上のフォームから登録済みデバイスを追加してください。</span></div>
           : <section className="activity-card device-list" aria-label="追加済みデバイス一覧">
             {devices.map(d => {
               const i = info[d.id]; const authed = hasSession(d.id); const isActive = d.id === activeId;
@@ -204,7 +204,7 @@ export default function DevicesPage() {
     <section id="device-register-panel" className="device-tab-panel" role="tabpanel" aria-labelledby="device-register-tab" hidden={tab !== "register"}>
       <div className="device-panel-intro">
         <span className="device-panel-icon"><Plus size={20} /></span>
-        <div><h2>新しいデバイスを登録</h2><p>デバイス本体に設定する新しいIDとパスワードを作成します。登録後はこのブラウザで使えるようになります。</p></div>
+        <div><h2>新しいデバイスを登録</h2><p>デバイス本体に設定する新しいIDとパスワードを作成します。登録後はこのアカウントで使えるようになります。</p></div>
       </div>
       <form className="settings-card device-add-form" onSubmit={e => void addDeviceSubmit(e)}>
         <label className="sender-name-field" htmlFor="new-device-id">新しいデバイスID
