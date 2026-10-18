@@ -22,14 +22,14 @@ export default function Layout({ onLogout }: { onLogout: () => void }) {
   const outletKey = location.pathname === "/devices" ? "devices" : activeId;
   return <div className="app-shell">
     <aside className="sidebar">
-      <button className="brand" onClick={() => navigate("/")} aria-label="ホームへ"><span className="brand-mark"><Robot small /></span><span><strong>ただいま。</strong><small>おうちのロボット</small></span></button>
+      <button className="brand" onClick={() => navigate("/")} aria-label="ホームへ"><span className="brand-mark"><Robot small /></span><span><strong>おかえりんく</strong><small>おうちのロボット</small></span></button>
       <DeviceSwitcher />
       <div className="sidebar-caption">MENU</div>
       <nav className="side-nav"><NavLink to="/" end><House size={18} />ホーム</NavLink><NavLink to="/history"><History size={18} />履歴</NavLink><NavLink to="/voice"><Mic size={18} />メッセージ登録</NavLink><NavLink to="/settings"><Settings2 size={18} />デバイス情報</NavLink><NavLink to="/devices"><Cpu size={18} />デバイス管理</NavLink></nav>
       <button className="logout-button" onClick={onLogout}><LogOut size={16} />すべてログアウト</button>
     </aside>
     <main className="main-area">
-      <header className="mobile-header"><span className="brand-dot"><Robot small /></span><strong>ただいま。</strong><DeviceSwitcher compact /><button className="mobile-logout" onClick={onLogout} aria-label="すべてログアウト"><LogOut size={17} /></button></header>
+      <header className="mobile-header"><span className="brand-dot"><Robot small /></span><strong>おかえりんく</strong><DeviceSwitcher compact /><button className="mobile-logout" onClick={onLogout} aria-label="すべてログアウト"><LogOut size={17} /></button></header>
       {notice && <div className="notice-wrap"><div className="inline-alert error" role="alert">{notice}<button className="text-button" onClick={() => setNotice("")}>閉じる</button></div></div>}
       <Outlet key={outletKey} />
     </main>

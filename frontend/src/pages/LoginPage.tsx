@@ -1,12 +1,29 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { CheckCircle2, KeyRound, LockKeyhole, LogIn, Sparkles, UserPlus } from "lucide-react";
+import { CheckCircle2, KeyRound, LockKeyhole, LogIn, UserPlus } from "lucide-react";
 import Robot from "../components/Robot";
 import { login, register } from "../api";
 
 type AuthMode = "login" | "register";
+type PasswordStrength = { score: number; level: number; label: string; hint: string };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function getPasswordStrength(value: string): PasswordStrength {
+  const characterTypes = [
+    /[a-z]/.test(value),
+    /[A-Z]/.test(value),
+    /\d/.test(value),
+    /[^a-zA-Z0-9]/.test(value),
+  ].filter(Boolean).length;
+  const score = characterTypes + (value.length >= 12 ? 2 : value.length >= 8 ? 1 : 0);
+
+  if (!value) return { score: 0, level: 0, label: "未入力", hint: "入力すると強度をチェックします。" };
+  if (score <= 2) return { score, level: 1, label: "もう少し", hint: "8文字以上にして、数字や記号も加えてみましょう。" };
+  if (score === 3) return { score, level: 2, label: "ふつう", hint: "文字数を増やすか、文字の種類を組み合わせるとより安心です。" };
+  if (score <= 5) return { score, level: 3, label: "強い", hint: "いい感じです。12文字以上にするとさらに安心です。" };
+  return { score, level: 4, label: "とても強い", hint: "とても強いパスワードです！" };
+}
 
 export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const [mode, setMode] = useState<AuthMode>("login");
@@ -28,6 +45,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
   const normalizedEmail = email.trim();
   const emailValid = EMAIL_PATTERN.test(normalizedEmail);
   const passwordValid = password.length >= 8;
+  const passwordStrength = getPasswordStrength(password);
   const confirmationValid = passwordConfirmation === password && passwordConfirmation.length > 0;
   const emailHint = !touched.email
     ? "ログインに使うメールアドレスを入力してください。"
@@ -35,9 +53,9 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
       ? "メールアドレスを入力してください。"
       : !emailValid
         ? "メールアドレスの形を確認してください（例：you@example.com）。"
-        : "メールアドレスの形はばっちりです。";
+        : "";
   const passwordHint = touched.password
-    ? passwordValid ? "いい感じのパスワードです。" : `あと${Math.max(8 - password.length, 0)}文字以上入力してください。`
+    ?  `あと${Math.max(8 - password.length, 0)}文字以上入力してください。`
     : isRegister ? "8文字以上で設定してください。" : "パスワードを入力してください。";
   const confirmationHint = !touched.confirmation
     ? "確認のため、もう一度入力してください。"
@@ -71,14 +89,15 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         <h1>大切な人の声を、<br />いつもの場所へ。</h1>
         <p>あなたのメッセージが、帰宅したときの<br />小さな「おかえり」になります。</p>
       </div>
-      <div className="login-speech"><span>おかえり、待ってたよ</span><i>♡</i></div>
+      {/* 
+        <div className="login-speech"><span>おかえり、待ってたよ</span><i>♡</i></div>
+       */}
       <Robot mode="idle" />
       <small className="login-note">A warm welcome, made by someone you love.</small>
     </section>
     <section className="login-panel">
       <div className="login-form-wrap">
-        <div className="login-logo"><span className="logo-spark">⌁</span>ただいま。</div>
-        <div className="login-welcome"><Sparkles size={15} /><span>あなたのおうちにつながろう</span></div>
+        <div className="login-logo"><span className="logo-spark">⌁</span>おかえりんく</div>
         <p className="eyebrow">{isRegister ? "A NEW HELLO" : "WELCOME HOME"}</p>
         <h2>{isRegister ? "アカウントを作成" : "おかえりなさい"}</h2>
         <p className="muted">{isRegister ? "メールアドレスとパスワードを登録してください。" : "ログインして、大切な人の声を受け取りましょう。"}</p>
@@ -126,6 +145,16 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             <small id="password-hint" className={`field-hint ${touched.password && !passwordValid ? "is-error" : touched.password && passwordValid ? "is-valid" : ""}`}>
               {touched.password && passwordValid && <CheckCircle2 size={13} aria-hidden="true" />}{passwordHint}
             </small>
+            {isRegister && <div className={`password-strength strength-${passwordStrength.level}`}>
+              <div className="password-strength-heading">
+                <span>パスワードの強さ</span>
+                <strong>{passwordStrength.label}</strong>
+              </div>
+              <div className="password-strength-meter" role="meter" aria-label="パスワードの強さ" aria-valuemin={0} aria-valuemax={4} aria-valuenow={passwordStrength.level} aria-valuetext={passwordStrength.label}>
+                {[1, 2, 3, 4].map(level => <span className={passwordStrength.level >= level ? "is-filled" : ""} key={level} />)}
+              </div>
+              <small className="password-strength-hint">{passwordStrength.hint}</small>
+            </div>}
           </label>
           {isRegister && <label htmlFor="login-password-confirmation">パスワード（確認）
             <div className={`input-wrap ${touched.confirmation && !confirmationValid ? "has-error" : confirmationValid ? "is-valid" : ""}`}>
