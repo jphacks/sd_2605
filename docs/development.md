@@ -3,6 +3,9 @@
 Arduino CLI、M5Stack ESP32ボードパッケージ3.3.10、M5Unified 0.2.26、M5GFX 0.2.33を使用します。
 既存のArduino CLI設定・ライブラリを利用します。
 
+GitHub Actionsによる自動ビルドは未設定です。push時に設定エラーを起こしていた空の
+`firmware.yml`・`web.yml`は削除しました。ビルドは以下のローカルスクリプトで実行します。
+
 リポジトリ直下で実行:
 
 ```powershell
