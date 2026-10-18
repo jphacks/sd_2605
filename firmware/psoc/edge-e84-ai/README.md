@@ -1,3 +1,5 @@
+> Step 3Aの固定4バイト専用試験は [i2c-fixed4](i2c-fixed4/README.md) を使用。以下の24バイト統合版は今回の対象外。
+
 # E84 AI Kit レーダーAI / I²C Target
 
 公式DEEPCRAFT Radarにイベント出力を追加した開発中の実装。
@@ -28,7 +30,7 @@ CoreS3など他のボードのソースには変更しない。
 | 用途 | 配線 / リソース |
 |---|---|
 | SDA | J14.18（指定配線）→ BSP `CYBSP_I2C_SDA_3V3` / P17.1 / SCB5 |
-| SCL | J14.17（指定配線）→ BSP `CYBSP_I2C_SCL_3V3` / P17.0 / SCB5 |
+| SCL | J14.19（SCL、J14.17/P17.2は使用しない）→ BSP `CYBSP_I2C_SCL_3V3` / P17.0 / SCB5 |
 | GND | J14.20 → C3M5 GND |
 | C3M5 | SDA J3.9 / P9.2、SCL J3.10 / P9.0 |
 | レーダーSPI | SCB3 / `CYBSP_SPI_CONTROLLER`、公式設定を維持 |
