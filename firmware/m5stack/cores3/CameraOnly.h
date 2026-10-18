@@ -39,6 +39,18 @@ String cameraNetworkStatus() {
 uint32_t cameraCountBase = 0, cameraLastCount = 0;
 uint32_t cameraLastDirectionCount = 0, cameraDirectionBase = 0;
 
+void cameraDrawMapping() {
+  bool invert = vision.invertArrivalDeparture.load();
+  M5.Display.setTextSize(1);
+  M5.Display.setTextColor(TFT_WHITE, TFT_DARKGREY);
+  M5.Display.fillRect(0, 0, 320, 24, TFT_DARKGREY);
+  M5.Display.drawString("DIRECTION MAP - tap to swap", 4, 1);
+  String mapping = String("L->R: ") + actionName(passageAction(MotionDirection::LEFT_TO_RIGHT, invert)) +
+                   "    R->L: " + actionName(passageAction(MotionDirection::RIGHT_TO_LEFT, invert));
+  M5.Display.drawString(mapping, 4, 13);
+  M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
+}
+
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
   if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
@@ -98,15 +110,15 @@ void setup() {
   M5.Speaker.setVolume(128);
   cameraStorageOK = cameraStorage.begin();
   if (cameraStorageOK) {
+    vision.invertArrivalDeparture.store(cameraStorage.prefs.getBool(
+        "invertMap", MotionDirectionConfig::invertArrivalDeparture));
     cameraVoiceBegin();
     if (!cameraApi.start()) Serial.println("[API] task creation failed");
   } else Serial.println("[FS] NVS/mutex initialization failed");
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
-  M5.Display.setTextSize(2);
-  M5.Display.drawString("CAMERA DIRECTION", 0, 2);
+  cameraDrawMapping();
   const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT"};
   M5.Display.setTextSize(1);
-  M5.Display.drawString("MAP", 286, 8);
   for (int i = 0; i < 6; ++i) {
     int x = (i % 3) * 107, y = 166 + (i / 3) * 37;
     M5.Display.drawRect(x, y, 106, 37, TFT_DARKGREY);
@@ -149,8 +161,15 @@ void loop() {
     }
   }
   if (action == 6) {
-    vision.invertArrivalDeparture.store(!vision.invertArrivalDeparture.load());
-    cameraNotify(vision.invertArrivalDeparture.load() ? "Map: LTR=ARRIVE RTL=LEAVE" : "Map: LTR=LEAVE RTL=ARRIVE");
+    bool invert = !vision.invertArrivalDeparture.load();
+    bool saved = false;
+    if (cameraStorageOK) {
+      StorageGuard guard(cameraStorage);
+      saved = cameraStorage.prefs.putBool("invertMap", invert) == 1;
+    }
+    vision.invertArrivalDeparture.store(invert);
+    cameraDrawMapping();
+    cameraNotify(saved ? "Map swapped / SAVED" : "Map swapped / NOT SAVED");
   } else if (action == 7 || action == 8) {
     int threshold = vision.thresholdPercent.load() + (action == 7 ? -1 : 1);
     threshold = std::max(1, std::min(40, threshold));

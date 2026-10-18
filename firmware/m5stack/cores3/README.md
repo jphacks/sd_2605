@@ -1,3 +1,9 @@
+# CoreS3 画面からの方向割り当て変更
+
+画面上部の灰色の「DIRECTION MAP - tap to swap」をタップすると、左右移動に対応するARRIVE／LEAVEを入れ替えます。現在の割り当ては同じ領域の`L->R`（画面の左→右）と`R->L`（右→左）に常時表示します。初期値は左→右がLEAVE、右→左がARRIVEです。方向別音声と、自動イベントが有効な場合のイベント種別に適用されます。検知済み・PIR照合待ちのイベントは検知時の割り当てを使います。
+
+設定はNVSに保存し再起動後に復元します。`SAVED`は保存成功、`NOT SAVED`は今回の起動中だけの変更を示します。Serialの`i`でも同じ操作ができます。実機確認では、上部タップで両表示が反転すること、再起動後の保持、左右の通過で対応した音声が鳴ることをそれぞれ確認してください。
+
 # CoreS3 Render音声同期（2026-10-18）
 
 画面右側の下段（PIR表示の下）にWi-Fi/API状態を表示します。`WiFi:CONNECTING`は接続中、`WiFi:NO SSID`は接続先が見つからない状態、`WiFi:CONNECT FAILED`は接続失敗、`WiFi:ON TIME WAIT`は時刻同期待ち、`WiFi:ON API:200`は接続済みで直近のheartbeat成功です。負のAPI値は通信/TLSエラー、200以外の正値はHTTPエラーです。状態変化時だけSerialへ`[UI WiFi]`を出力します。SSID・パスワードは画面やログへ出しません。
@@ -156,7 +162,7 @@ RUN操作後は`RUN: learning background (clear view)`を短時間表示して�
 | cooldownMs / detectedHoldMs | 2000 / 300ms | 再判定待ちとDETECTED表示時間 |
 | maxTrackMs / maxFrameGapMs | 6000 / 500ms | 追跡上限とフレーム中断 |
 | mirrorImage | false | プレビューと解析画像を同時に左右反転 |
-| invertArrivalDeparture | false | 起動時の外出／帰宅割り当て反転 |
+| invertArrivalDeparture | false | NVSに保存設定がない場合の外出／帰宅割り当て反転の初期値 |
 
 `sampleWidth / sampleHeight / imageWidth`は現在の固定撮影サイズに対応し、感度調整用ではありません。
 画像の左右補正は`mirrorImage`を使い、設置向きによる外出／帰宅の反転は`invertArrivalDeparture`またはMAP操作を使います。
