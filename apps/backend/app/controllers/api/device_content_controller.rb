@@ -28,11 +28,16 @@ module Api
     end
 
     def status
-      audio = @device.device_audios.find_by(slot: "arrive")
+      registered = @device.device_audios.index_by(&:slot)
+      arrive = registered["arrive"]
+      leave = registered["leave"]
+      arrive_audio = arrive ? DeviceAudioStore.metadata(@device, @setting, "arrive") : nil
       render json: {
         device_id: @device.id, online: @device.online?, last_seen_at: @device.last_seen_at&.iso8601,
-        message_count: audio ? 1 : 0,
-        message_audio: audio ? DeviceAudioStore.metadata(@device, @setting, "arrive") : nil,
+        message_count: arrive ? 1 : 0,
+        message_audio: arrive_audio,
+        leave_audio: leave ? DeviceAudioStore.metadata(@device, @setting, "leave") : nil,
+        arrive_audio: arrive_audio,
         message_updated_at: @setting.message_uploaded_at&.iso8601
       }
     end
