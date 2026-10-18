@@ -19,8 +19,10 @@ Rails.application.routes.draw do
       patch "settings", action: :update_settings
       post "message", action: :message
     end
+    get "auth_config", to: "auth_config#show"
     resources :users, only: [ :create ]
     resources :user_sessions, only: [ :create ]
+    resources :google_sessions, only: [ :create ]
   end
 
   # React Router の画面パスはすべて index.html を返す。/rails は Active Storage などの組み込みルート。
