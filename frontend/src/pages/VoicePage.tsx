@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, CircleStop, Download, Mic, Music2, Square, Trash2, Volume2 } from "lucide-react";
+import { Check, CircleStop, Download, House, LogOut, Mic, Music2, Square, Trash2, Volume2 } from "lucide-react";
 import { blobToWav16kMono, formatBytes } from "../audio";
 import { apiRequest, devicePath } from "../api";
 import { useDevices } from "../devices";
@@ -7,6 +7,11 @@ import { useDevices } from "../devices";
 const MAX_SECONDS = 5;
 const MAX_BYTES = 200 * 1024;
 const MAX_WAV_BYTES = 44 + 16000 * 2 * MAX_SECONDS;
+type AudioSlot = "leave" | "arrive";
+const AUDIO_SLOTS: { id: AudioSlot; label: string; phrase: string }[] = [
+  { id: "leave", label: "外出", phrase: "いってらっしゃい" },
+  { id: "arrive", label: "帰宅", phrase: "おかえり" },
+];
 
 export default function VoicePage() {
   const { active } = useDevices();
@@ -17,6 +22,7 @@ export default function VoicePage() {
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
   const [senderName, setSenderName] = useState("");
+  const [audioSlot, setAudioSlot] = useState<AudioSlot>("arrive");
   const [isPrepared, setIsPrepared] = useState(false);
   const [wavBlob, setWavBlob] = useState<Blob | null>(null);
   const [micError, setMicError] = useState("");
@@ -100,6 +106,14 @@ export default function VoicePage() {
     document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
+  const selectedSlot = AUDIO_SLOTS.find(slot => slot.id === audioSlot) ?? AUDIO_SLOTS[1];
+  const playback = audioSlot === "leave" ? "外出するときに「いってらっしゃい」として再生されます。" : "帰宅したときに「おかえり」として再生されます。";
+
+  const selectSlot = (slot: AudioSlot) => {
+    setAudioSlot(slot);
+    if (isPrepared) { setMessage(""); setIsPrepared(false); }
+  };
+
   const uploadVoice = async () => {
     if (!audio) return;
     setSending(true); setMessage(""); setIsPrepared(false);
@@ -110,11 +124,12 @@ export default function VoicePage() {
       setWavBlob(wav);
       const form = new FormData();
       if (!senderName.trim()) throw new Error("登録者名（ニックネーム）を入力してください。");
-      form.append("file", wav, "welcome-message.wav");
+      form.append("file", wav, `${audioSlot}-message.wav`);
       form.append("sender_name", senderName.trim());
+      form.append("slot", audioSlot);
       const result = await apiRequest<{ file_name?: string; version?: number; byte_size?: number }>(devicePath("/message"), { method: "POST", body: form });
       setIsPrepared(true);
-      setMessage(`「${active.name}」に音声メッセージを登録しました${result?.version ? `（バージョン ${result.version}）` : ""}。帰宅時にデバイスから再生されます。`);
+      setMessage(`「${active.name}」に${selectedSlot.label}用の音声を登録しました${result?.version ? `（バージョン ${result.version}）` : ""}。${playback}`);
     } catch (error) {
       setMessage(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "音声を登録できませんでした。接続先と入力内容を確認してください。");
     } finally { setSending(false); }
@@ -122,7 +137,7 @@ export default function VoicePage() {
 
   return <div className="page-content voice-page">
     <div className="page-heading"><div><p className="eyebrow">A MESSAGE FROM SOMEONE YOU LOVE</p><h1>声を届ける</h1><p className="muted">大切な人の声を、いつもの場所に。</p></div><div className="heading-icon voice-heading-icon"><Mic size={21} /></div></div>
-    <section className="voice-intro"><div className="voice-intro-icon"><Music2 size={22} /></div><div><strong>大切な人に届けるメッセージを録音</strong><p>家族や友達からのメッセージを登録すると、家主の帰宅時にデバイスから再生されます。</p></div></section>
+    <section className="voice-intro"><div className="voice-intro-icon"><Music2 size={22} /></div><div><strong>大切な人に届けるメッセージを録音</strong><p>家族や友達からのメッセージを登録すると、{playback}</p></div></section>
 
     <div className="voice-layout">
       <section className="voice-card">
@@ -139,6 +154,7 @@ export default function VoicePage() {
         <div className="section-heading"><div><h2>メッセージの確認</h2><p className="muted">保存前に再生して確認できます。</p></div><div className="preview-icon"><Volume2 size={18} /></div></div>
         {audio && audioUrl ? <div className="audio-preview"><div className="audio-file-icon"><Music2 size={20} /></div><div className="audio-file-info"><strong>録音したメッセージ</strong><small>{formatBytes(audio.size)} ・ 元の録音データ</small></div><audio controls src={audioUrl} /></div> : <div className="preview-empty"><div className="preview-empty-icon"><Mic size={23} /></div><strong>まだ録音されていません</strong><p>録音すると、ここで試聴できます。</p></div>}
         <div className="voice-target">登録先：<strong>{active.name}</strong><small>{active.id}</small></div>
+        <div className="slot-choice" role="radiogroup" aria-label="再生するタイミング">{AUDIO_SLOTS.map(slot => <button type="button" key={slot.id} role="radio" aria-checked={audioSlot === slot.id} className={audioSlot === slot.id ? "is-selected" : ""} onClick={() => selectSlot(slot.id)} disabled={sending || recording}>{slot.id === "leave" ? <LogOut size={16} /> : <House size={16} />}<span><strong>{slot.label}</strong><small>{slot.phrase}</small></span></button>)}</div>
         <label className="sender-name-field">登録者名（ニックネーム）<input value={senderName} onChange={e => setSenderName(e.target.value)} maxLength={40} placeholder="例：お母さん、ゆうた" required /></label>
         <div className="format-info"><span>変換後の形式</span><strong>WAV · PCM 16bit · 16 kHz · モノラル</strong><small>最大5秒 / 200 KB以下</small></div>
         <div className="preview-actions">
@@ -150,6 +166,6 @@ export default function VoicePage() {
         {wavBlob && <button className="text-button" onClick={downloadWav}><Download size={14} /> WAVファイルをダウンロード</button>}
       </section>
     </div>
-    <div className="voice-safety"><CircleStop size={17} /><span>登録したメッセージはサーバーに保存され、家主が帰宅したときにデバイスから再生されます。Home画面では再生できません。</span></div>
+    <div className="voice-safety"><CircleStop size={17} /><span>登録したメッセージはサーバーに保存され、{playback}Home画面では再生できません。</span></div>
   </div>;
 }
