@@ -1,28 +1,25 @@
 # おかえりんく
 
 <p align="center">
+
   <img src="docs/images/okaelink_logo_animated.gif" alt="おかえりんく" width="420">
+
 </p>
 
 ## 各種リンク
 
-- **アプリURL**: https://sd-2605-mobile.onrender.com/
-- スライドURL: https://canva.link/qu8e8hxn11fekr0
-
-公開アプリは Render の無料プランです。15分間アクセスがないとサーバーがスリープし、次に開いたときは起動まで数十秒かかります。
-
-<p align="center">
-  <img src="docs/images/qr.png" alt="アプリのQRコード" width="160">
-</p>
-
-大切な人の声で「いってらっしゃい」「おかえり」を届ける、玄関向けの音声メッセージデバイスです。このリポジトリは、その声を登録し、玄関のデバイスへ届けるWebアプリです。
-
+- **アプリURL**: [https://sd-2605-mobile.onrender.com/](https://sd-2605-mobile.onrender.com/)
+- スライドURL: [https://canva.link/qu8e8hxn11fekr0](https://canva.link/qu8e8hxn11fekr0)
 - 本リポジトリ: [jphacks/sd_2605-mobile](https://github.com/jphacks/sd_2605-mobile)
 - ハードウェアの開発元: [jphacks/sd_2605](https://github.com/jphacks/sd_2605)
 
+※公開アプリは Render の無料プランです。15分間アクセスがないとサーバーがスリープし、次に開いたときは起動まで数十秒かかります。
+
 ## 製品概要
 
-### 背景(製品開発のきっかけ、課題等）
+大切な人の声で「いってらっしゃい」「おかえり」を届ける、玄関向けの音声メッセージデバイスです。このリポジトリは、その声を登録し、玄関のデバイスへ届けるWebアプリです。
+
+### 背景（製品開発のきっかけ、課題等）
 
 突然ですが、みなさんは一人暮らしをしたことがありますか？
 実際、このプロダクトの開発メンバーは全員が一人暮らしの経験者です。そして、私たちが共通して抱えていた感情、それは――「ふとした瞬間に寂しい」ということでした。
@@ -44,7 +41,9 @@
 ホームでは、デバイスの接続状態、外出用・帰宅用の登録状況、最近の外出と帰宅を確認できます。音量は設定画面から0〜100で変更します。登録した声の再生は玄関のデバイス（M5Stack CoreS3）が行います。
 
 <p align="center">
+
   <img src="docs/images/device.png" alt="CoreS3の顔画面とデバッグ画面、PIRセンサー" width="720">
+
 </p>
 
 ### 特長
@@ -54,8 +53,11 @@
 ブラウザで録音・試聴し、外出用（leave）と帰宅用（arrive）の音声を登録できます。録音は5秒で止まり、送る前にWAVへ変換して形式とサイズを確認します。ホームでは、二つの音声が登録済みかを別々に表示します。
 
 <p align="center">
+
   <img src="docs/images/web-voice-mobile.png" alt="メッセージ登録画面（スマートフォン）" width="280">
+
   <img src="docs/images/web-voice-pc.png" alt="メッセージ登録画面（PC）" width="720">
+
 </p>
 
 #### 2. 家族のアカウントで、同じ玄関デバイスを共有
@@ -67,8 +69,11 @@
 WAV本体はPostgreSQLに保存し、版番号と同時に更新します。デバイスはheartbeatで版番号を比較し、変わったときだけWAVを取得します。まだ登録していないスロットには、同梱の既定音源を返します。Webではオンライン状態、最終通信、外出と帰宅の履歴を表示します。
 
 <p align="center">
+
   <img src="docs/images/web-home-mobile.png" alt="ホーム画面（スマートフォン）" width="280">
+
   <img src="docs/images/web-home-pc.png" alt="ホーム画面（PC）" width="720">
+
 </p>
 
 ### 解決出来ること
@@ -104,21 +109,25 @@ WAV本体はPostgreSQLに保存し、版番号と同時に更新します。デ�
 
 #### フレームワーク・ライブラリ・モジュール
 
-| 対象 | 技術スタック |
-| --- | --- |
-| Webフロントエンド | TypeScript、React 18、Vite、React Router、Lucide React |
-| Webバックエンド | Ruby 3.3、Ruby on Rails 8.1、Puma、JWT、bcrypt、googleauth |
-| データ | PostgreSQL 17 |
-| 開発・デプロイ | Docker Compose、Render |
+
+| 対象         | 技術スタック                                                |
+| ---------- | ----------------------------------------------------- |
+| Webフロントエンド | TypeScript、React 18、Vite、React Router、Lucide React    |
+| Webバックエンド  | Ruby 3.3、Ruby on Rails 8.1、Puma、JWT、bcrypt、googleauth |
+| データ        | PostgreSQL 17                                         |
+| 開発・デプロイ    | Docker Compose、Render                                 |
+
 
 #### デバイス
 
 このリポジトリはWebアプリです。玄関側のファームウェアは [jphacks/sd_2605](https://github.com/jphacks/sd_2605) にあります。
 
-| デバイス | このWebアプリからの位置づけ |
-| --- | --- |
-| スマートフォンのブラウザ | 録音、登録、状態確認、音量変更を行う操作画面 |
+
+| デバイス           | このWebアプリからの位置づけ                                                       |
+| -------------- | --------------------------------------------------------------------- |
+| スマートフォンのブラウザ   | 録音、登録、状態確認、音量変更を行う操作画面                                                |
 | M5Stack CoreS3 | 音声を取得して再生するメインの玄関デバイス。heartbeatとleave/arriveのWAV取得を、Render上の本APIで確認済み |
+
 
 ### 独自技術
 
@@ -137,25 +146,29 @@ WAV本体はPostgreSQLに保存し、版番号と同時に更新します。デ�
 
 ## 開発体制・開発経緯
 
-| メンバー | 主な担当 |
-| --- | --- |
-| 伊藤知世 | Webアプリのフロントエンド開発 |
-| 工藤康矢 | Webアプリのバックエンド開発 |
-| Norjinkhorloo Tergel | ハードウェアのUI開発 |
-| 近藤宙 | ハードウェアの組み立て・組み込み制御ロジックの開発 |
 
-Webアプリはこのリポジトリで開発し、**ハッカソン1日目の夜にハードウェア側 [jphacks/sd_2605](https://github.com/jphacks/sd_2605) へ統合しました**。ハードウェア側ではGit subtreeで履歴を保持し、`apps/` に取り込んでいます。
+| メンバー                 | 主な担当                      |
+| -------------------- | ------------------------- |
+| 伊藤知世                 | Webアプリのフロントエンド開発          |
+| 工藤康矢                 | Webアプリのバックエンド開発           |
+| Norjinkhorloo Tergel | ハードウェアのUI開発               |
+| 近藤宙                  | ハードウェア設計・組み込みソフトウェア開発 |
+
+
+※Webアプリはこのリポジトリで開発し、**ハッカソン1日目の夜にハードウェア側 [jphacks/sd_2605](https://github.com/jphacks/sd_2605) へ統合しました**。ハードウェア側ではGit subtreeで履歴を保持し、`apps/` に取り込んでいます。
 
 ## リポジトリ構成
 
-| パス | 内容 |
-| --- | --- |
-| `frontend/` | Webフロントエンド |
-| `backend/` | Rails API。既定音源は `backend/config/audio/` |
-| `docs/` | テーブル構成の説明 |
-| `docs/images/` | READMEの画像 |
-| `docker-compose.yml` | ローカルのフロントエンド、API、PostgreSQL |
-| `render.yaml`、`Dockerfile.render` | Renderへのデプロイ |
+
+| パス                                | 内容                                      |
+| --------------------------------- | --------------------------------------- |
+| `frontend/`                       | Webフロントエンド                              |
+| `backend/`                        | Rails API。既定音源は `backend/config/audio/` |
+| `docs/`                           | テーブル構成の説明                               |
+| `docs/images/`                    | READMEの画像                               |
+| `docker-compose.yml`              | ローカルのフロントエンド、API、PostgreSQL             |
+| `render.yaml`、`Dockerfile.render` | Renderへのデプロイ                            |
+
 
 ハードウェア側に取り込んだあとの対応は、`apps/frontend/` と `apps/backend/` です。
 
@@ -193,7 +206,7 @@ GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 
 1. このリポジトリをGitHubにpushする
 2. [Render](https://render.com) にGitHubでサインアップし、`jphacks` orgのリポジトリへのアクセスを許可する
-3. Dashboardの **New > Blueprint** でこのリポジトリを選ぶ。Web ServiceとPostgreSQLが作られる
+3. Dashboardの **New &gt; Blueprint** でこのリポジトリを選ぶ。Web ServiceとPostgreSQLが作られる
 4. ビルドが終わったら `https://<service>.onrender.com/api/health` が `{"status":"ok"}` になることを確認する
 
 `GOOGLE_CLIENT_ID` は、Googleログインを使うときにBlueprintへ手入力します。pushするたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。無料のPostgreSQLは作成から30日で失効します。
