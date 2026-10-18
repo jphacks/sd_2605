@@ -32,11 +32,13 @@ test("permission denial after login preserves the user session and device regist
     return Response.json({ error: { code: "device_forbidden", message: "Permission denied" } }, { status: 403 });
   };
   await api.login("owner@example.com", "test-password");
+  assert.equal(devices.getActiveDeviceId(), "");
+  assert.deepEqual(JSON.parse(localStorage.getItem("tadaima.devices")), []);
   let expired = 0;
   const listener = () => expired++;
   window.addEventListener("tadaima:session-expired", listener);
   await assert.rejects(api.apiRequest(api.devicePath("/status")), error => error.status === 403);
-  assert.equal(devices.getSession().token, "valid-user");
+  assert.equal(devices.getUserSession().token, "valid-user");
   assert.equal(expired, 0);
   await api.registerDevice("my-device", "device-password");
   assert.equal(devices.getSession("my-device").token, "valid-user");
@@ -67,7 +69,7 @@ test("google login posts the credential and stores the session", async () => {
   };
   await api.loginWithGoogle("google-credential");
   assert.equal(body.credential, "google-credential");
-  assert.equal(devices.getSession().token, "google-token");
+  assert.equal(devices.getUserSession().token, "google-token");
 });
 
 test("google login shows the API error and does not store a session", async () => {
@@ -79,7 +81,7 @@ test("google login shows the API error and does not store a session", async () =
     api.loginWithGoogle("bad"),
     error => error.message === "Googleログインに失敗しました。もう一度お試しください。",
   );
-  assert.equal(devices.getSession(), null);
+  assert.equal(devices.getUserSession(), null);
 });
 
 test("auth config reads the Google client id", async () => {

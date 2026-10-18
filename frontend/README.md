@@ -35,10 +35,9 @@ npm run dev
 | 変数 | 既定値 | 用途 |
 |---|---|---|
 | `VITE_API_BASE_URL` | `/api` | ブラウザから呼び出すAPIのベースURL |
-| `VITE_DEVICE_ID` | `entrance-1` | 初期表示するデバイスID |
 | `VITE_API_PROXY_TARGET` | `http://localhost:3000` | Vite開発サーバーのAPIプロキシ先。ブラウザから直接参照するURLではない |
 
-`.env.example` は `VITE_API_BASE_URL` と `VITE_DEVICE_ID` の例を含みます。`VITE_API_PROXY_TARGET` を変更する場合は `.env.local` などに追加してください。
+`.env.example` は `VITE_API_BASE_URL` の例を含みます。`VITE_API_PROXY_TARGET` を変更する場合は `.env.local` などに追加してください。デバイスは初期状態では空で、デバイス管理で登録したものだけが表示されます。
 
 ## コマンド
 ```bash

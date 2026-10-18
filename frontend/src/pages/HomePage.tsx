@@ -8,6 +8,7 @@ import { useDevices } from "../devices";
 
 export default function HomePage() {
   const { active } = useDevices();
+  const deviceName = active?.name ?? "";
   const [status, setStatus] = useState<DeviceStatus | null>(null);
   const [events, setEvents] = useState<DeviceEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ export default function HomePage() {
   const audioDetail = (audio: AudioMeta | null | undefined, empty: string) => audioRegistered(audio) ? `${audio?.registered_by || "登録済み"} ・ ${formatDateTime(audio?.updated_at)}` : empty;
   const mode: RobotMode = online ? "idle" : "offline";
   return <div className="page-content">
-    <div className="page-heading"><div><p className="eyebrow">{today} ・ {active.name}</p><h1>おかえりなさい。</h1><p className="muted">大切な人の声が、あなたの帰りを待っています。</p></div><div className="status-pill"><span className={`status-dot ${online ? "" : "is-offline"}`} />{loading ? "状態を確認中" : online ? "オンライン" : "オフライン"}</div></div>
+    <div className="page-heading"><div><p className="eyebrow">{today} ・ {deviceName}</p><h1>おかえりなさい。</h1><p className="muted">大切な人の声が、あなたの帰りを待っています。</p></div><div className="status-pill"><span className={`status-dot ${online ? "" : "is-offline"}`} />{loading ? "状態を確認中" : online ? "オンライン" : "オフライン"}</div></div>
     <section className="hero-card"><div className="hero-copy"><span className="eyebrow">A LITTLE MESSAGE FOR YOU</span><h2>声でつながる、いつもの場所。</h2><p>家族や友達から届いたメッセージを、外出と帰宅のときにロボットがお届けします。</p><div className="hero-actions"><Link className="button button-primary" to="/voice"><Mic size={17} />音声メッセージを登録 <ChevronRight size={16} /></Link><button className="button button-quiet" onClick={() => void refresh()} disabled={loading}><RefreshCw size={15} />更新</button></div></div><div className="hero-robot-wrap"><div className="hero-halo" /><Robot mode={mode} /><div className="robot-label"><span className={`status-dot ${online ? "" : "is-offline"}`} />{online ? "メッセージを届ける準備OK" : "接続を確認してください"}</div></div></section>
     {error && <div className="inline-alert error">{error}</div>}
     <div className="section-heading"><div><h2>おうちの状態</h2><p className="muted">音声の登録状況とデバイス情報</p></div></div>
