@@ -39,6 +39,12 @@ Webアプリで録音・登録した短い音声を、玄関に置いたデバ�
 
 ハードウェアは **M5Stack CoreS3をメインに開発し、デモもCoreS3で実施しました**。内蔵カメラの動体検知・左右方向判定とPIRセンサーの照合を用い、Webから取得した音声を本体に保存して再生する構成です。
 
+CoreS3は、**内蔵カメラと人感センサー（PIR）**を組み合わせて通過を検知します。カメラでは**画像処理によって物体の移動と左右の移動方向を検出**し、人感センサーの反応と照合します。移動方向に応じて外出・帰宅を判定し、外出時は「いってらっしゃい」、帰宅時は「おかえり」の音声を再生します。左右の方向と外出・帰宅の対応は、設置場所に合わせて切り替えられます。
+
+画像処理では、撮影画像を40×30の明るさ画像に縮小し、2フレーム前との差分から動いた部分を抽出します。小さな画像領域の模様が左右どちらにずれたかを照合して移動方向を求め、十分に照合できない場合は動いた領域の中心位置の変化を使います。照明の変化や小さなノイズを抑え、複数フレームの移動をまとめて判定します。現在の実装には、方向を確定できないときに前回と逆方向を採用する補完処理もあります。
+
+別途、学習済みAIモデルによる人物検出も単独で検証しています。移動方向の判定は上記の画像処理で行い、AI人物検出と方向判定・PIR照合・挨拶再生の統合動作は未確認です。
+
 <p align="center">
   <img src="docs/images/device.png" alt="CoreS3の顔画面とデバッグ画面、PIRセンサー" width="720">
 </p>
@@ -75,8 +81,6 @@ CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較
 
 ### 今後の展望
 
-**InfineonのPSoCボードを組み合わせ、より高度な処理を行うデバイスは開発中です。** PSoC Edge E84によるレーダーAI・人物検出と、PSoC Control C3M5によるセンサー情報の統合・通信制御を進めています。AtomS3R-CAMとの連携も開発対象です。この構成はCoreS3で行ったデモとは別の発展構成であり、全体の実機連携・推論・センサー動作の検証が残っています。
-
 今後は検知の安定性を高め、設置環境ごとの調整や複数センサーの活用を進めます。
 
 ### 注力したこと（こだわり等）
@@ -105,7 +109,6 @@ CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較
 | 開発・デプロイ | Docker Compose、Render、Git subtree |
 | CoreS3 / Core | C++、Arduino CLI、M5Stack ESP32ボードパッケージ、M5Unified、M5GFX、ArduinoJson |
 | CoreS3の保存・並行処理 | LittleFS、Preferences / NVS、FreeRTOS |
-| PSoC構成（開発中） | C / C++、ModusToolbox、Infineon HAL / PDL、DEEPCRAFT、I²C、UART |
 
 #### デバイス
 
@@ -113,9 +116,6 @@ CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較
 | --- | --- |
 | M5Stack CoreS3、内蔵カメラ・タッチ画面・スピーカー、PIRセンサー | メイン開発機・デモ使用機 |
 | M5Stack Core、PIRセンサー、microSD | 初期の音声再生・検知実装 |
-| Infineon PSoC Edge E84 AI Kit / Evaluation Kit | レーダーAI・画像による人物検出の発展構成（開発中） |
-| Infineon PSoC Control C3M5 Evaluation Kit | センサー情報の統合・通信制御（開発中） |
-| M5Stack AtomS3R-CAM | PSoC構成との連携用（開発中） |
 
 ### 独自技術
 
@@ -124,7 +124,6 @@ CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較
 - [CoreS3ファームウェア](firmware/m5stack/cores3/): カメラによる通過方向判定、PIR照合、方向別音声再生、顔のUI、タッチ操作、Webとの音声同期を統合。
 - [Webフロントエンド](apps/frontend/): 録音・WAV変換、外出／帰宅メッセージの登録、デバイス管理・設定画面。
 - [Webバックエンド](apps/backend/): slot別の音声保存と版管理、端末向け音声配信、ユーザー認証・所有デバイス管理。
-- [PSoCファームウェア](firmware/psoc/): AI・センサー処理とデバイス間通信の発展構成。統合動作は開発・検証中。
 
 ## 開発体制・開発経緯
 
@@ -184,8 +183,6 @@ arduino-cli monitor -p COM4 --config baudrate=115200
 .\scripts\upload-core.ps1 -Port COM5
 ```
 
-PSoCのビルド・配線・未検証項目は各ボードのREADMEを参照してください。CoreS3とは別のツールチェーンを使用します。
-
 ### Web開発元との同期
 
 作業ツリーがクリーンな状態で、本リポジトリ直下から実行します。
@@ -203,8 +200,9 @@ git subtree pull --prefix=apps https://github.com/jphacks/sd_2605-mobile.git mai
 - [開発環境と書き込み](docs/development.md)
 - [M5Stack・Rails APIインターフェース仕様](docs/m5stack-api.md)
 - [CoreS3のRender連携・確認手順](docs/cores3-render-migration.md)
-- [PSoC Control C3M5](firmware/psoc/control-c3m5/README.md)
-- [PSoC Edge E84 AI Kit](firmware/psoc/edge-e84-ai/README.md)
-- [PSoC Edge E84 Evaluation Kit](firmware/psoc/edge-e84-eval/README.md)
 
 CoreS3でデモを実施していますが、その後の変更も含めたすべての機能の実機確認を意味するものではありません。各変更の確認状況は、コンパイル・書き込み・シリアルログと、実際の発音・センサー検知・画面操作に分けて各ドキュメントに記録しています。
+
+## 発展構成（開発中）
+
+InfineonのPSoCとAtomS3R-CAMを組み合わせ、AI・センサー処理を拡張する構成も開発中です。CoreS3のデモとは別の構成で、全体の実機連携は未検証です。詳細は [PSoCファームウェア](firmware/psoc/) を参照してください。
