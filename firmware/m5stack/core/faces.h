@@ -1,3 +1,4 @@
+#pragma once
 // ---------------------------------------------------------------- face drawing ----
 // Self-contained character faces. Drawn with primitives only (no images, no SD, no
 // sensors, no audio), so this is the only code needed to draw a character in any
