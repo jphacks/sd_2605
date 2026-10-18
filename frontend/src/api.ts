@@ -44,7 +44,7 @@ async function saveUserSession(response: Response): Promise<void> {
   if (!data.token || !data.user?.id || !data.user.email) {
     throw new Error("認証サーバーから正しいユーザー情報を取得できませんでした。");
   }
-  saveUserAccount({ token: data.token, expires_at: data.expires_at });
+  saveUserAccount({ token: data.token, expires_at: data.expires_at, userId: data.user.id });
 }
 
 export async function register(email: string, password: string, passwordConfirmation: string): Promise<void> {

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_18_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["device_id", "slot"], name: "index_device_audios_on_device_id_and_slot", unique: true
+  end
+
+  create_table "device_memberships", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.string "device_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["device_id"], name: "index_device_memberships_on_device_id"
+    t.index ["user_id", "device_id"], name: "index_device_memberships_on_user_id_and_device_id", unique: true
   end
 
   create_table "device_settings", force: :cascade do |t|
@@ -68,6 +77,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_120000) do
   end
 
   add_foreign_key "device_audios", "devices"
+  add_foreign_key "device_memberships", "devices"
+  add_foreign_key "device_memberships", "users"
   add_foreign_key "device_settings", "devices"
   add_foreign_key "devices", "users"
   add_foreign_key "home_events", "devices"

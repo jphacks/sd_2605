@@ -2,16 +2,18 @@ import { useSyncExternalStore } from "react";
 
 /**
  * 複数デバイスの管理。
- * - 一覧と表示名、操作中のデバイス … localStorage（秘密情報なし）
+ * - 一覧と表示名、操作中のデバイス … アカウントごとの localStorage（秘密情報なし。別のブラウザには引き継がない）
  * - アカウントのログイン … sessionStorage（デバイス一覧とは別）
- * - デバイスごとのログイン … sessionStorage（ブラウザを閉じると消える）
+ * - デバイスごとのログイン … そのアカウントの一覧と一緒に保存する
  */
-export type StoredSession = { token: string; device_id: string; expires_at?: string };
+export type StoredSession = { token: string; device_id: string; expires_at?: string; user_id?: string };
 export type SavedDevice = { id: string; name: string };
-type Snapshot = { devices: SavedDevice[]; activeId: string; sessions: Record<string, StoredSession>; userSession: StoredSession | null };
+type AccountRecord = { devices: SavedDevice[]; activeId: string; sessions: Record<string, StoredSession> };
+type Snapshot = { accountId: string | null; devices: SavedDevice[]; activeId: string; sessions: Record<string, StoredSession>; userSession: StoredSession | null };
 
 export const DEVICE_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const DEVICES_KEY = "tadaima.devices";
+const ACCOUNTS_KEY = "tadaima.accounts";
 const ACTIVE_KEY = "tadaima.activeDevice";
 const SESSIONS_KEY = "tadaima.web.sessions";
 const USER_KEY = "tadaima.web.user";
@@ -26,12 +28,12 @@ function readJSON<T>(storage: Storage, key: string, fallback: T): T {
   try { const raw = storage.getItem(key); return raw ? (JSON.parse(raw) as T) : fallback; } catch { return fallback; }
 }
 
-function canOperate(s: Snapshot, id: string) {
+function canOperate(s: Pick<Snapshot, "sessions" | "userSession">, id: string) {
   return !!s.sessions[id] || isValid(s.userSession);
 }
 
 /** 操作中のデバイスは、ログイン済みのものから選ぶ。未ログインのデバイスがあっても、ログイン済みが1台でもあればそちらを優先する */
-function normalize(s: Snapshot): Snapshot {
+function normalize<T extends Omit<Snapshot, "accountId">>(s: T): T {
   let activeId = s.activeId;
   const activeInList = s.devices.some(d => d.id === activeId);
   const operable = s.devices.some(d => canOperate(s, d.id));
@@ -48,8 +50,46 @@ function legacyPlaceholderIds(): Set<string> {
   return ids;
 }
 
+function accountIdFromToken(token: string): string | null {
+  const part = token.split(".")[1];
+  if (!part) return null;
+  try {
+    const json = JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/")));
+    if (typeof json.sub === "number" || typeof json.sub === "string") return String(json.sub);
+  } catch { /* アカウントIDを持たないトークンはアカウント分けに使わない */ }
+  return null;
+}
+
+function accountIdOf(session: StoredSession | null): string | null {
+  if (!session) return null;
+  if (session.user_id) return session.user_id;
+  return accountIdFromToken(session.token);
+}
+
+function readAccounts(): Record<string, AccountRecord> {
+  const saved = readJSON<Record<string, AccountRecord>>(localStorage, ACCOUNTS_KEY, {});
+  const accounts: Record<string, AccountRecord> = {};
+  for (const [id, record] of Object.entries(saved)) {
+    if (!record || !Array.isArray(record.devices)) continue;
+    accounts[id] = {
+      devices: record.devices.filter(d => d && typeof d.id === "string" && typeof d.name === "string"),
+      activeId: typeof record.activeId === "string" ? record.activeId : "",
+      sessions: record.sessions && typeof record.sessions === "object" ? record.sessions : {},
+    };
+  }
+  return accounts;
+}
+
+function writeAccount(accounts: Record<string, AccountRecord>, id: string, record: AccountRecord) {
+  accounts[id] = record;
+  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
 function writeStorage(s: Snapshot) {
   try {
+    if (s.accountId) {
+      writeAccount(readAccounts(), s.accountId, { devices: s.devices, activeId: s.activeId, sessions: s.sessions });
+    }
     localStorage.setItem(DEVICES_KEY, JSON.stringify(s.devices));
     localStorage.setItem(ACTIVE_KEY, s.activeId);
     sessionStorage.setItem(SESSIONS_KEY, JSON.stringify(s.sessions));
@@ -58,7 +98,7 @@ function writeStorage(s: Snapshot) {
   } catch { /* 保存できなくてもメモリ上では動作する */ }
 }
 
-function load(): Snapshot {
+function loadUnscoped(): Omit<Snapshot, "accountId"> {
   const sessions: Record<string, StoredSession> = {};
   const saved = readJSON<Record<string, StoredSession>>(sessionStorage, SESSIONS_KEY, {});
   for (const [id, s] of Object.entries(saved)) if (isValid(s) && s.device_id === id) sessions[id] = s;
@@ -101,8 +141,34 @@ function load(): Snapshot {
   }
   let activeId = "";
   try { activeId = localStorage.getItem(ACTIVE_KEY) || ""; } catch { /* noop */ }
-  const snapshot = normalize({ devices, activeId, sessions, userSession });
-  if (droppedPlaceholder || userSession) writeStorage(snapshot);
+  return normalize({ devices, activeId, sessions, userSession });
+}
+
+function load(): Snapshot {
+  const base = loadUnscoped();
+  const accountId = accountIdOf(base.userSession);
+  if (!accountId) {
+    const snapshot = { ...base, accountId: null };
+    if (base.userSession) writeStorage(snapshot);
+    return snapshot;
+  }
+  const accounts = readAccounts();
+  const saved = accounts[accountId];
+  // まだアカウント別の保存がない最初の読み込みだけ、今ログイン中のアカウントへ従来の一覧を移す。
+  if (!saved && Object.keys(accounts).length === 0) {
+    const snapshot = { ...base, accountId };
+    writeStorage(snapshot);
+    return snapshot;
+  }
+  const record = saved ?? { devices: [], activeId: "", sessions: {} };
+  const snapshot = normalize({
+    accountId,
+    devices: record.devices,
+    activeId: record.activeId,
+    sessions: record.sessions,
+    userSession: base.userSession,
+  });
+  writeStorage(snapshot);
   return snapshot;
 }
 
@@ -133,9 +199,23 @@ export function getSession(deviceId: string = state.activeId): StoredSession | n
   return null;
 }
 
-/** アカウントのログイン。デバイス一覧には追加しない */
-export function saveUserAccount(session: { token: string; expires_at?: string }) {
-  commit({ ...state, userSession: { token: session.token, device_id: "", expires_at: session.expires_at } });
+/** アカウントのログイン。別のアカウントのデバイス一覧には切り替え、今の一覧には追加しない */
+export function saveUserAccount(session: { token: string; expires_at?: string; userId?: number | string }) {
+  const nextId = session.userId != null && String(session.userId) !== "" ? String(session.userId) : accountIdFromToken(session.token);
+  const userSession: StoredSession = {
+    token: session.token,
+    device_id: "",
+    expires_at: session.expires_at,
+    ...(nextId ? { user_id: nextId } : {}),
+  };
+  if (!nextId || nextId === state.accountId) {
+    commit({ ...state, accountId: nextId ?? state.accountId, userSession });
+    return;
+  }
+  const accounts = readAccounts();
+  if (state.accountId) writeAccount(accounts, state.accountId, { devices: state.devices, activeId: state.activeId, sessions: state.sessions });
+  const saved = accounts[nextId] ?? { devices: [], activeId: "", sessions: {} };
+  commit({ accountId: nextId, devices: saved.devices, activeId: saved.activeId, sessions: saved.sessions, userSession });
 }
 
 /** ログイン成功時。未登録のデバイスは一覧に追加し、そのデバイスを操作中にする */
@@ -151,7 +231,12 @@ export function clearSession(deviceId: string = state.activeId) {
   void _removed;
   commit({ ...state, sessions: rest });
 }
-export function clearAllSessions() { commit({ ...state, sessions: {}, userSession: null }); }
+export function clearAllSessions() {
+  if (state.accountId) {
+    writeAccount(readAccounts(), state.accountId, { devices: state.devices, activeId: state.activeId, sessions: {} });
+  }
+  commit({ ...state, accountId: null, devices: [], activeId: "", sessions: {}, userSession: null });
+}
 
 /** 操作するデバイスを切り替える。ログインしていないデバイスには切り替えられない */
 export function setActiveDevice(id: string): boolean {

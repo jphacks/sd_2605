@@ -5,16 +5,15 @@ module Api
     before_action :authenticate_user!
 
     def create
-      device = current_user.devices.find_by(id: device_id)
+      device = Device.find_by(id: device_id)
       if device
-        unless device.authenticate(device_password)
-          return render_device_conflict
-        end
+        return render_device_conflict unless device.authenticate(device_password)
 
+        device.grant_access_to!(current_user)
         return render json: { device_id: device.id }
       end
 
-      device = current_user.devices.build(id: device_id, password: device_password)
+      device = Device.new(id: device_id, password: device_password, user: current_user)
       device.save!
       render json: { device_id: device.id }, status: :created
     rescue ActiveRecord::RecordInvalid => e

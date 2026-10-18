@@ -37,12 +37,14 @@ module Api
 
     def create_user_device_session
       user = user_from_token
-      device = user&.devices&.find_by(id: params[:device_id].to_s.strip)
-      unless device&.authenticate(params[:password].to_s)
+      device = Device.find_by(id: params[:device_id].to_s.strip)
+      unless user && device&.authenticate(params[:password].to_s)
         return render json: {
           error: { code: "invalid_credentials", message: "デバイスIDまたはパスワードが正しくありません。" }
         }, status: :unauthorized
       end
+
+      device.grant_access_to!(user)
 
       token, expires_at = JsonWebToken.encode(user.id)
       render json: {

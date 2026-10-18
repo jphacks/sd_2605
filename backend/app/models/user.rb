@@ -1,5 +1,7 @@
 class User < ApplicationRecord
-  has_many :devices, dependent: :restrict_with_error
+  has_many :device_memberships, dependent: :destroy
+  has_many :devices, through: :device_memberships
+  has_many :registered_devices, class_name: "Device", dependent: :restrict_with_error
 
   has_secure_password validations: false
 

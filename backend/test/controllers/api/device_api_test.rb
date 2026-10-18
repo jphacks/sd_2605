@@ -22,6 +22,42 @@ module Api
       assert_equal 70, response.parsed_body["volume"]
     end
 
+    test "lets another member read history, change settings, and upload audio" do
+      other = User.create!(email: "member-#{SecureRandom.hex(4)}@example.com", password: "password1")
+      headers = { "Authorization" => "Bearer #{JsonWebToken.encode(other.id).first}" }
+      HomeEvent.create!(
+        id: "shared-event",
+        device: @device,
+        event_type: "arrived_home",
+        occurred_at: Time.utc(2026, 10, 17, 8, 0, 0)
+      )
+
+      post "/api/sessions",
+        params: { device_id: @device.id, password: "test-password" },
+        as: :json,
+        headers: headers
+      assert_response :success
+      assert_equal @user, @device.reload.user
+
+      get "/api/devices/#{@device.id}/events", headers: headers
+      assert_response :success
+      assert_equal [ "shared-event" ], response.parsed_body.map { |event| event["event_id"] }
+
+      patch "/api/devices/#{@device.id}/settings", params: { volume: 40 }, as: :json, headers: headers
+      assert_response :success
+      assert_equal 40, @device.device_setting.reload.volume
+
+      post "/api/devices/#{@device.id}/message",
+        params: {
+          file: Rack::Test::UploadedFile.new(StringIO.new(wav_bytes), "audio/wav", true, original_filename: "voice.wav"),
+          sender_name: "Other"
+        },
+        headers: headers
+      assert_response :created
+      assert_equal "Other", @device.device_setting.reload.message_registered_by
+      assert_equal wav_bytes, @device.device_audios.find_by!(slot: "arrive").wav
+    end
+
     test "returns forbidden rather than expiring a valid login for another device" do
       get "/api/devices/#{@other_device.id}/status", headers: @headers
 
