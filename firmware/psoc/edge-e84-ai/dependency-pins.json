@@ -1,0 +1,11 @@
+{
+  "ml-middleware": "da0fc9fe22e8cac5f97e7f330d85e59f9126f57f",
+  "ml-tflite-micro": "424235ab9eb882e21cd1958ab0594e58ed0f218b",
+  "retarget-io": "83bbf77931f809c243be20d58939c52c674674f7",
+  "sensor-xensiv-bgt60trxx": "78099697159a2a736504ef5bd1d33820b21f4e67",
+  "core-lib": "ca57d1e519e08badec6891d1776c7b4f05e09561",
+  "core-make": "aefe7ff6ff59de2cb357362638231f701f7a220c",
+  "se-rt-services-utils": "b9cb6c8a88e5f1a7c3ea4684cea2268475da9cb5",
+  "mtb-dsl-pse8xxgp": "c2793cf168c31420266648473122d78897c4faf9",
+  "bt-fw-mur-cyw55513": "88233235711fb4a8f81c78b85222cc6f14711c11"
+}
