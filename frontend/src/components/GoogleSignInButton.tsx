@@ -93,7 +93,7 @@ export default function GoogleSignInButton({ disabled, onCredential, onError }: 
 
   if (!clientId || scriptFailed) return null;
   return <>
-    <div className={`google-signin ${disabled ? "is-busy" : ""}`} ref={buttonRef} aria-label="Googleでログイン" />
     <div className="login-divider">または</div>
+    <div className={`google-signin ${disabled ? "is-busy" : ""}`} ref={buttonRef} aria-label="Googleでログイン" />
   </>;
 }

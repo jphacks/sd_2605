@@ -112,7 +112,6 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
         <p className="eyebrow">{isRegister ? "A NEW HELLO" : "WELCOME HOME"}</p>
         <h2>{isRegister ? "アカウントを作成" : "おかえりなさい"}</h2>
         <p className="muted">{isRegister ? "メールアドレスとパスワードを登録してください。" : "ログインして、大切な人の声を受け取りましょう。"}</p>
-        <GoogleSignInButton disabled={busy} onCredential={credential => { void signInWithGoogle(credential); }} onError={setError} />
         <form className="login-form" onSubmit={submit} noValidate>
           <label htmlFor="login-email">メールアドレス
             <div className={`input-wrap ${touched.email && !emailValid ? "has-error" : touched.email && emailValid ? "is-valid" : ""}`}>
@@ -195,6 +194,7 @@ export default function LoginPage({ onLogin }: { onLogin: () => void }) {
             {isRegister ? <UserPlus size={16} /> : <LogIn size={16} />}{busy ? "処理中…" : isRegister ? "アカウントを作成" : "ログインしてつながる"}
           </button>
         </form>
+        <GoogleSignInButton disabled={busy} onCredential={credential => { void signInWithGoogle(credential); }} onError={setError} />
         <div className="auth-switch">{isRegister ? "すでにアカウントをお持ちですか？" : "はじめての方はこちら"} <button type="button" className="text-button" onClick={() => changeMode(isRegister ? "login" : "register")}>{isRegister ? "ログイン" : "新規登録"}</button></div>
         <div className="demo-hint">メールアドレスはアカウントへのログインに使います。パスワードは安全に保管されます。</div>
       </div>
