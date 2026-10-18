@@ -11,12 +11,10 @@
 - **アプリURL**: [https://sd-2605-mobile.onrender.com/](https://sd-2605-mobile.onrender.com/)
 - スライドURL: [https://canva.link/qu8e8hxn11fekr0](https://canva.link/qu8e8hxn11fekr0)
 
-※公開アプリは Render の無料プランです。15分間アクセスがないとサーバーがスリープし、次に開いたときは起動まで数十秒かかります。
-
-大切な人の声で「いってらっしゃい」と「おかえり」を届ける、玄関設置型の音声メッセージデバイスです。
-
 - 本リポジトリ: [jphacks/sd_2605](https://github.com/jphacks/sd_2605)
 - Webアプリの開発元: [jphacks/sd_2605-mobile](https://github.com/jphacks/sd_2605-mobile)
+
+※公開アプリは Render の無料プランです。15分間アクセスがないとサーバーがスリープし、次に開いたときは起動まで数十秒かかります。
 
 ## 製品概要
 
@@ -96,7 +94,7 @@ CoreS3がWi-Fi経由でAPIに定期アクセスし、音声の版番号を比較
 - 音声の保存・更新と再生を分け、通信待ちが検知や本体操作を妨げない構成にすること。
 - 顔の表情やタッチ操作を通じて、玄関に置きたくなる親しみやすさを持たせること。
 
-## 開発技術
+## 開発技術詳細
 
 ### 活用した技術
 
