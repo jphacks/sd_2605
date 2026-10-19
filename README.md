@@ -8,7 +8,7 @@
 
 ## 各種リンク
 
-- デモ動画: [おかえりんくの動作デモ](docs/videos/demo.mp4)
+- デモ動画: [https://youtu.be/tWO2L9vAWeg](https://youtu.be/tWO2L9vAWeg)
 - **アプリURL**: [https://sd-2605-mobile.onrender.com/](https://sd-2605-mobile.onrender.com/)
 - スライドURL: [https://canva.link/qu8e8hxn11fekr0](https://canva.link/qu8e8hxn11fekr0)
 
