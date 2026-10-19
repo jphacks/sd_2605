@@ -22,13 +22,17 @@ bool muted = false;
 uint8_t faceColor = 0;
 Preferences prefs;
 const char* const COLOR_NAME[3] = {"pink", "yellow", "blue"};
-// Short A/C picks a colour, short B plays audio; long presses run extra actions.
+// A records three seconds; B plays the latest recording; C cycles characters.
 constexpr uint32_t HOLD_MS = 600;          // M5Unified default is 500 ms
 constexpr uint32_t BUTTON_GUARD_MS = 3000; // ignore the first clicks after boot
 uint32_t buttonReadyAt = 0;
 // Idle, streaming, first chime, last chime, startup beep, draining after error.
-enum AudioMode { IDLE, WAV, CHIME1, CHIME2, BOOT, DRAIN };
+enum AudioMode { IDLE, WAV, CHIME1, CHIME2, BOOT, DRAIN, RECORDING, REC_PLAY };
 AudioMode audio = IDLE;
+constexpr size_t RECORD_SAMPLES = 16000 * 3;
+int16_t* recording = nullptr;
+bool hasRecording = false;
+std::atomic<bool> recordingDone{false};
 const char* errorText = "";
 String lastState;
 M5Canvas ui(&M5.Display);
@@ -36,6 +40,7 @@ bool uiBuffered = false;
 
 #include "storage.h"
 #include "audio_player.h"
+#include "audio_recorder.h"
 #include "pir_sensor.h"
 #include "env3_sensor.h"
 
@@ -58,7 +63,7 @@ void displayState() {
 }
 
 // Switch the character body colour and remember it, so a reboot keeps the choice.
-// A selects the pink girl; C cycles all three. Save only when the selection changes.
+// C cycles all three. Save only when the selection changes.
 void setFaceColor(uint8_t index) {
   if (index > 2 || index == faceColor) return;
   faceColor = index;
@@ -68,33 +73,17 @@ void setFaceColor(uint8_t index) {
   prefs.end();
 }
 
-// Long-press action of each button, kept from the earlier build.
-// 0 (A) = manual test play, 1 (B) = mute toggle.
-void longAction(uint8_t index) {
-  if (index == 0) {
-    // Ignored while a greeting is already playing or about to start.
-    if (audio == IDLE && !pending) {
-      Serial.printf("[%lu ms] manual test play\n", millis());
-      startAudio();
-    }
-  } else if (index == 1) {
-    muted = !muted;
-    // Silence queued audio without stopping buffers while the audio task owns them.
-    M5.Speaker.setVolume(muted ? 0 : VOLUME);
-    Serial.printf("[%lu ms] mute %s\n", millis(), muted ? "ON" : "OFF");
-  }
-}
-
 void setup() {
   auto cfg = M5.config();
   cfg.internal_spk = true;
+  cfg.internal_mic = true;
   M5.begin(cfg);
   Serial.begin(115200);
-  // Hold a button this long to reach the older action instead of the colour.
+  // Hold threshold suppresses the C long-press click.
   M5.BtnA.setHoldThresh(HOLD_MS);
   M5.BtnB.setHoldThresh(HOLD_MS);
   M5.BtnC.setHoldThresh(HOLD_MS);
-  // Restore the body colour picked with A / B / C on the previous run.
+  // Restore the character chosen with C.
   prefs.begin("greeter", true);
   faceColor = prefs.getUChar("face", 0) % 3;
   prefs.end();
@@ -106,6 +95,8 @@ void setup() {
   M5.Speaker.setVolume(VOLUME);
   M5.Speaker.setBufferReleaseCallback(nullptr, released);
   M5.Display.setRotation(1);
+  recording = static_cast<int16_t*>(malloc(RECORD_SAMPLES * sizeof(int16_t)));
+  Serial.printf("recording buffer: %s; mic pin=%d\n", recording ? "ready" : "unavailable", M5.Mic.config().pin_data_in);
   ui.setColorDepth(8);
   uiBuffered = ui.createSprite(320, 240) != nullptr;
   buttonReadyAt = millis() + BUTTON_GUARD_MS;
@@ -120,14 +111,13 @@ void setup() {
 void loop() {
   M5.update();
   uint32_t now = millis();
-  // Short B plays audio; short A/C picks the body colour.
+  updateRecording();
+  // A/B act once on press, including a long press.
   // A release after a hold is not counted as a click by M5Unified, so the two never clash.
   // The guard window skips the noisy first seconds after power-on (see hardware.md).
   if (int32_t(now - buttonReadyAt) >= 0) {
-    if (M5.BtnA.wasHold()) longAction(0);
-    else if (M5.BtnA.wasReleased() && !M5.BtnA.wasReleasedAfterHold()) setFaceColor(0);
-    if (M5.BtnB.wasHold()) longAction(1);
-    else if (M5.BtnB.wasReleased() && !M5.BtnB.wasReleasedAfterHold()) longAction(0);
+    if (M5.BtnA.wasPressed()) startRecording();
+    if (M5.BtnB.wasPressed()) playRecording();
     if (M5.BtnC.wasReleased() && !M5.BtnC.wasReleasedAfterHold()) setFaceColor((faceColor + 1) % 3);
   }
   bool high = readPir();

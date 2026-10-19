@@ -27,7 +27,7 @@ void startAudio() {
 }
 // At most one 1024-byte SD read per loop; never overwrite queued PCM.
 void updateAudio() {
-  if (audio == IDLE) return;
+  if (audio == IDLE || audio == RECORDING) return;
   if (audio == WAV) {
     if (remaining && !busy[bufferIndex].load()) {
       size_t length = remaining < sizeof(buffers[0]) ? remaining : sizeof(buffers[0]);
