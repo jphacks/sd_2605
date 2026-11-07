@@ -211,6 +211,8 @@ GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 
 `GOOGLE_CLIENT_ID` は、Googleログインを使うときにBlueprintへ手入力します。pushするたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。無料のPostgreSQLは作成から30日で失効します。
 
+外出・帰宅のメールを届けるときは、Renderの環境変数にSMTPの接続情報を手で入れます。`SMTP_ADDRESS`、`SMTP_PORT`（省略時は587）、`SMTP_USER_NAME`、`SMTP_PASSWORD`、`MAIL_FROM` です。値はGitに置きません。`SMTP_ADDRESS` が空のときは送信せず、デバイスからのイベント保存自体は成功します。
+
 ハードウェア側のモノレポからRenderをビルドする場合は、Root Directoryを `apps`、Dockerfileを `Dockerfile.render` にします。
 
 ### ハードウェア側との同期

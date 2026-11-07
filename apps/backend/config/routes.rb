@@ -16,6 +16,7 @@ Rails.application.routes.draw do
       post "heartbeat", action: :heartbeat
       get "audio/:slot", action: :audio
       post "events", action: :create_event
+      post "events/:event_id/voice", action: :create_voice
       get "events", action: :events
       get "status", action: :status
       get "settings", action: :settings

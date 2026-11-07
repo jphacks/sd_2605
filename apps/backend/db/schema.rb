@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -74,12 +74,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
     t.index ["user_id"], name: "index_devices_on_user_id"
   end
 
+  create_table "home_event_voices", force: :cascade do |t|
+    t.string "home_event_id", null: false
+    t.binary "wav", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["home_event_id"], name: "index_home_event_voices_on_home_event_id", unique: true
+  end
+
   create_table "home_events", id: :string, force: :cascade do |t|
     t.string "device_id", null: false
     t.string "event_type", null: false
     t.datetime "occurred_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "voice_skipped", default: false, null: false
+    t.datetime "messengers_notified_at"
     t.index ["device_id", "occurred_at"], name: "index_home_events_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_home_events_on_device_id"
   end
@@ -103,5 +113,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120200) do
   add_foreign_key "device_memberships", "users"
   add_foreign_key "device_settings", "devices"
   add_foreign_key "devices", "users"
+  add_foreign_key "home_event_voices", "home_events"
   add_foreign_key "home_events", "devices"
 end

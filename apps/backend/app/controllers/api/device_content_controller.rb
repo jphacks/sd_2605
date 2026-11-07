@@ -3,7 +3,7 @@ module Api
     include UserAuthenticatable
 
     # Hardware endpoints retain the existing unauthenticated device API contract.
-    before_action :authenticate_user!, except: [ :heartbeat, :audio, :create_event ]
+    before_action :authenticate_user!, except: [ :heartbeat, :audio, :create_event, :create_voice ]
     before_action :load_device
 
     def heartbeat
@@ -99,9 +99,29 @@ module Api
         end
         @device.update!(last_seen_at: Time.current)
       end
+      notify_messengers(event) if params[:voice].to_s == "skipped"
       render json: event_json(event), status: created ? :created : :ok
     rescue ArgumentError, ActiveRecord::RecordInvalid, ActiveRecord::RecordNotUnique
       render_error(:unprocessable_entity, "validation_error", "Invalid event")
+    end
+
+    def create_voice
+      event = @device.home_events.find_by(id: params[:event_id])
+      return render_error(:not_found, "not_found", "Unknown event") unless event
+
+      bytes = voice_bytes
+      unless WavAudio.valid?(bytes)
+        return render_error(:unprocessable_entity, "validation_error", "WAV must be PCM16 mono 16kHz, at most 5 seconds / 200KiB")
+      end
+
+      created = false
+      event.with_lock do
+        voice = event.home_event_voice || event.build_home_event_voice
+        created = voice.new_record?
+        voice.update!(wav: bytes)
+      end
+      notify_messengers(event, wav: bytes)
+      render json: event_json(event), status: created ? :created : :ok
     end
 
     private
@@ -122,6 +142,29 @@ module Api
 
     def event_json(event)
       { event_id: event.id, event_type: event.event_type, occurred_at: event.occurred_at.iso8601 }
+    end
+
+    def voice_bytes
+      upload = params[:file]
+      if upload.respond_to?(:read)
+        upload.read(WavAudio::MAX_BYTES + 1)
+      elsif request.media_type == "audio/wav"
+        request.body.read(WavAudio::MAX_BYTES + 1)
+      end
+    end
+
+    # The first successful claim sends one mail. A later voice upload still replaces the WAV.
+    def notify_messengers(event, wav: nil)
+      return if wav.nil? && event.reload.home_event_voice.present?
+
+      claimed = HomeEvent.where(id: event.id, messengers_notified_at: nil).update_all(
+        voice_skipped: wav.nil?,
+        messengers_notified_at: Time.current,
+        updated_at: Time.current
+      )
+      return unless claimed == 1
+
+      HomeEvent.where(id: event.id).update_all(messengers_notified_at: nil, updated_at: Time.current) unless HomeEventNotice.deliver!(event, wav: wav)
     end
 
     def render_error(status, code, message)
