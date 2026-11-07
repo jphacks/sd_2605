@@ -58,6 +58,34 @@ module Api
       assert_equal wav_bytes, @device.device_audios.find_by!(slot: "arrive").wav
     end
 
+    test "a messenger can upload a greeting but cannot change settings" do
+      messenger = User.create!(email: "messenger-#{SecureRandom.hex(4)}@example.com", password: "password1")
+      @device.grant_access_to!(messenger, role: "messenger")
+      headers = { "Authorization" => "Bearer #{JsonWebToken.encode(messenger.id).first}" }
+
+      patch "/api/devices/#{@device.id}/settings", params: { volume: 10 }, as: :json, headers: headers
+      assert_response :forbidden
+      assert_equal "resident_only", response.parsed_body.dig("error", "code")
+      assert_equal 70, @device.device_setting.reload.volume
+
+      post "/api/devices/#{@device.id}/message",
+        params: {
+          file: Rack::Test::UploadedFile.new(StringIO.new(wav_bytes), "audio/wav", true, original_filename: "voice.wav"),
+          sender_name: "Messenger"
+        },
+        headers: headers
+      assert_response :created
+
+      post "/api/devices",
+        params: { device_id: @device.id, password: "test-password" },
+        as: :json,
+        headers: headers
+      assert_response :success
+      assert_equal "messenger", @device.device_memberships.find_by!(user: messenger).role
+      patch "/api/devices/#{@device.id}/settings", params: { volume: 10 }, as: :json, headers: headers
+      assert_response :forbidden
+    end
+
     test "returns forbidden rather than expiring a valid login for another device" do
       get "/api/devices/#{@other_device.id}/status", headers: @headers
 
@@ -115,7 +143,9 @@ module Api
       setting = @device.device_setting.reload
       assert_equal 2, setting.arrive_audio_version
       assert_equal "Family", setting.message_registered_by
-      assert_equal wav_bytes, @device.device_audios.find_by!(slot: "arrive").wav
+      audio = @device.device_audios.find_by!(slot: "arrive")
+      assert_equal wav_bytes, audio.wav
+      assert_equal @user, audio.user
 
       get "/api/devices/#{@device.id}/status", headers: @headers
       assert_equal 1, response.parsed_body["message_count"]

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_120300) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,7 +21,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
     t.string "registered_by"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "user_id"
     t.index ["device_id", "slot"], name: "index_device_audios_on_device_id_and_slot", unique: true
+    t.index ["user_id"], name: "index_device_audios_on_user_id"
+  end
+
+  create_table "device_invitations", force: :cascade do |t|
+    t.string "device_id", null: false
+    t.bigint "invited_by_id", null: false
+    t.string "code", null: false
+    t.datetime "expires_at", null: false
+    t.bigint "accepted_by_id"
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["accepted_by_id"], name: "index_device_invitations_on_accepted_by_id"
+    t.index ["code"], name: "index_device_invitations_on_code", unique: true
+    t.index ["device_id"], name: "index_device_invitations_on_device_id"
+    t.index ["invited_by_id"], name: "index_device_invitations_on_invited_by_id"
   end
 
   create_table "device_memberships", force: :cascade do |t|
@@ -29,6 +46,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
     t.string "device_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "role", default: "resident", null: false
     t.index ["device_id"], name: "index_device_memberships_on_device_id"
     t.index ["user_id", "device_id"], name: "index_device_memberships_on_user_id_and_device_id", unique: true
   end
@@ -56,12 +74,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
     t.index ["user_id"], name: "index_devices_on_user_id"
   end
 
+  create_table "home_event_voices", force: :cascade do |t|
+    t.string "home_event_id", null: false
+    t.binary "wav", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["home_event_id"], name: "index_home_event_voices_on_home_event_id", unique: true
+  end
+
   create_table "home_events", id: :string, force: :cascade do |t|
     t.string "device_id", null: false
     t.string "event_type", null: false
     t.datetime "occurred_at", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "voice_skipped", default: false, null: false
+    t.datetime "messengers_notified_at"
     t.index ["device_id", "occurred_at"], name: "index_home_events_on_device_id_and_occurred_at"
     t.index ["device_id"], name: "index_home_events_on_device_id"
   end
@@ -77,9 +105,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_18_140000) do
   end
 
   add_foreign_key "device_audios", "devices"
+  add_foreign_key "device_audios", "users", on_delete: :nullify
+  add_foreign_key "device_invitations", "devices"
+  add_foreign_key "device_invitations", "users", column: "accepted_by_id"
+  add_foreign_key "device_invitations", "users", column: "invited_by_id"
   add_foreign_key "device_memberships", "devices"
   add_foreign_key "device_memberships", "users"
   add_foreign_key "device_settings", "devices"
   add_foreign_key "devices", "users"
+  add_foreign_key "home_event_voices", "home_events"
   add_foreign_key "home_events", "devices"
 end
