@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_07_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_07_120100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -22,6 +22,21 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120000) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["device_id", "slot"], name: "index_device_audios_on_device_id_and_slot", unique: true
+  end
+
+  create_table "device_invitations", force: :cascade do |t|
+    t.string "device_id", null: false
+    t.bigint "invited_by_id", null: false
+    t.string "code", null: false
+    t.datetime "expires_at", null: false
+    t.bigint "accepted_by_id"
+    t.datetime "accepted_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["accepted_by_id"], name: "index_device_invitations_on_accepted_by_id"
+    t.index ["code"], name: "index_device_invitations_on_code", unique: true
+    t.index ["device_id"], name: "index_device_invitations_on_device_id"
+    t.index ["invited_by_id"], name: "index_device_invitations_on_invited_by_id"
   end
 
   create_table "device_memberships", force: :cascade do |t|
@@ -78,6 +93,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_07_120000) do
   end
 
   add_foreign_key "device_audios", "devices"
+  add_foreign_key "device_invitations", "devices"
+  add_foreign_key "device_invitations", "users", column: "accepted_by_id"
+  add_foreign_key "device_invitations", "users", column: "invited_by_id"
   add_foreign_key "device_memberships", "devices"
   add_foreign_key "device_memberships", "users"
   add_foreign_key "device_settings", "devices"

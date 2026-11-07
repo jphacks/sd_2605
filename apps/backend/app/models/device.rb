@@ -6,6 +6,7 @@ class Device < ApplicationRecord
   has_many :home_events, dependent: :destroy
   has_many :device_audios, dependent: :destroy
   has_many :device_memberships, dependent: :destroy
+  has_many :device_invitations, dependent: :destroy
   has_many :members, through: :device_memberships, source: :user
 
   after_save :grant_access_to_registering_user, if: :saved_change_to_user_id?
