@@ -18,8 +18,17 @@ class Device < ApplicationRecord
     user.present? && (user_id == user.id || members.exists?(id: user.id))
   end
 
-  def grant_access_to!(user)
-    device_memberships.find_or_create_by!(user: user)
+  def resident?(user)
+    user.present? && (user_id == user.id || device_memberships.exists?(user: user, role: "resident"))
+  end
+
+  def messenger?(user)
+    user.present? && device_memberships.exists?(user: user, role: "messenger")
+  end
+
+  # Rejoining keeps the existing role. The given role applies only to a new membership.
+  def grant_access_to!(user, role: "resident")
+    device_memberships.find_or_create_by!(user: user) { |membership| membership.role = role }
   rescue ActiveRecord::RecordNotUnique
     device_memberships.find_by!(user: user)
   end

@@ -20,6 +20,7 @@ module Api
       assert_equal "entrance-2", response.parsed_body["device_id"]
       device = Device.find("entrance-2")
       assert_equal @user, device.user
+      assert_equal "resident", device.device_memberships.find_by!(user: @user).role
       assert device.authenticate("device-pass-1")
       assert_not_includes response.body, "device-pass-1"
       assert_not_includes response.body, device.password_digest
@@ -73,6 +74,8 @@ module Api
       assert_equal @user, device.reload.user
       assert_includes device.members, other_user
       assert_includes device.members, @user
+      assert_equal "resident", device.device_memberships.find_by!(user: @user).role
+      assert_equal "resident", device.device_memberships.find_by!(user: other_user).role
     end
 
     test "does not add another user when the device password is wrong" do
