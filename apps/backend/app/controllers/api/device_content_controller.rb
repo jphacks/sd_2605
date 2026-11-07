@@ -47,6 +47,10 @@ module Api
     end
 
     def update_settings
+      unless @device.resident?(current_user)
+        return render_error(:forbidden, "resident_only", "設定を変更できるのは、この家の居住者だけです。")
+      end
+
       if @setting.update(params.permit(:volume, :leave_greeting_enabled, :arrive_greeting_enabled))
         render json: settings_json
       else
