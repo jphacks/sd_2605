@@ -19,10 +19,10 @@ class DeviceAudioStore
     }
   end
 
-  def self.write!(device, setting, slot, bytes, sender)
+  def self.write!(device, setting, slot, bytes, sender, user: nil)
     setting.with_lock do
       audio = device.device_audios.find_or_initialize_by(slot: slot)
-      audio.update!(wav: bytes, registered_by: sender)
+      audio.update!(wav: bytes, registered_by: sender, user: user)
       setting.public_send("#{slot}_audio_version=", setting.public_send("#{slot}_audio_version") + 1)
       setting.message_registered_by = sender
       setting.message_uploaded_at = Time.current

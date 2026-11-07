@@ -68,7 +68,7 @@ module Api
         return render_error(:unprocessable_entity, "validation_error", "WAV must be PCM16 mono 16kHz, at most 5 seconds / 200KiB")
       end
       sender = params[:sender_name].to_s.strip.first(100)
-      DeviceAudioStore.write!(@device, @setting, slot, bytes, sender)
+      DeviceAudioStore.write!(@device, @setting, slot, bytes, sender, user: current_user)
       render json: DeviceAudioStore.metadata(@device, @setting, slot), status: :created
     end
 
