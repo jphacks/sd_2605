@@ -1,14 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent, KeyboardEvent } from "react";
-import { Cpu, KeyRound, LockKeyhole, Pencil, Plus, RefreshCw, Trash2, Check, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ChevronRight, Cpu, ImagePlus, KeyRound, LockKeyhole, Pencil, Plus, RefreshCw, Send, Trash2, Check, X } from "lucide-react";
 import { apiRequest, devicePath, loginDevice, registerDevice, DeviceStatus, formatDateTime, ApiError } from "../api";
-import { DEVICE_ID_PATTERN, removeDevice, renameDevice, setActiveDevice, useDevices } from "../devices";
+import DeviceIcon from "../components/DeviceIcon";
+import IconPicker from "../components/IconPicker";
+import { DEVICE_ID_PATTERN, removeDevice, renameDevice, setActiveDevice, setDeviceIcon, useDevices } from "../devices";
+import type { DeviceIcon as DeviceIconValue } from "../devices";
 
 type Info = { state: "loading" } | { state: "ok"; status: DeviceStatus } | { state: "error"; httpStatus?: number; message: string };
 type DeviceTab = "login" | "register";
 
 export default function DevicesPage() {
-  const { devices, activeId, hasSession } = useDevices();
+  const { devices, activeId, hasSession, activeRole } = useDevices();
+  // 差し出し手として家を見ているあいだは、デバイスのパスワードを扱うフォームを出さない
+  const passwordFormsHidden = activeRole === "messenger";
   const [tab, setTab] = useState<DeviceTab>("login");
   const [info, setInfo] = useState<Record<string, Info>>({});
   const [error, setError] = useState("");
@@ -24,6 +30,8 @@ export default function DevicesPage() {
   const [draft, setDraft] = useState("");
   const [reauth, setReauth] = useState<string | null>(null);
   const [reauthPassword, setReauthPassword] = useState("");
+  const [newIcon, setNewIcon] = useState<DeviceIconValue | undefined>(undefined);
+  const [iconEditing, setIconEditing] = useState<string | null>(null);
 
   // ログイン済みデバイスの状態をまとめて取得（1台の失敗が他の台に影響しない）
   const loggedIn = devices.filter(d => hasSession(d.id)).map(d => d.id);
@@ -53,8 +61,9 @@ export default function DevicesPage() {
     try {
       await registerDevice(id, newPassword);
       if (newName.trim()) renameDevice(id, newName);
+      if (newIcon) setDeviceIcon(id, newIcon);
       setMessage(`「${newName.trim() || id}」を登録し、このデバイスを操作中にしました。`);
-      setNewId(""); setNewName(""); setNewPassword(""); setNewPasswordConfirmation("");
+      setNewId(""); setNewName(""); setNewPassword(""); setNewPasswordConfirmation(""); setNewIcon(undefined);
     } catch (e) { setError(e instanceof Error ? e.message : "デバイスを登録できませんでした。"); }
     finally { setBusy(false); }
   };
@@ -117,6 +126,9 @@ export default function DevicesPage() {
     {error && <div className="inline-alert error" role="alert">{error}</div>}
     {message && <div className="inline-alert success" role="status">{message}</div>}
 
+    <Link className="receive-link-card" to="/receive"><span className="device-panel-icon"><Send size={19} /></span><span><strong>招待コードを受け取る</strong><small>家の人から渡されたコードで、その家に声を届けられるようになります。</small></span><ChevronRight size={18} /></Link>
+
+    {!passwordFormsHidden && <>
     <div className="device-tabs" role="tablist" aria-label="デバイスの追加方法">
       <button
         id="device-login-tab"
@@ -163,42 +175,6 @@ export default function DevicesPage() {
         </label>
         <button className="button button-primary device-submit" type="submit" disabled={busy || !existingId.trim() || !existingPassword}><LockKeyhole size={16} />{busy ? "認証しています…" : "このデバイスを追加"}</button>
       </form>
-      <section className="device-saved-section" aria-label="このアカウントのデバイス">
-        <div className="section-heading device-panel-heading">
-          <div><h2>このアカウントのデバイス</h2><p className="muted">このアカウントで追加したデバイスだけを表示します。別のブラウザでは、IDとパスワードでもう一度追加してください。</p></div>
-          <button className="button button-outline" onClick={() => void load()}><RefreshCw size={15} />状態を更新</button>
-        </div>
-        {devices.length === 0
-          ? <div className="activity-card device-empty-state"><Cpu size={24} /><p>このアカウントには、まだデバイスがありません。</p><span>上のフォームから登録済みデバイスを追加してください。</span></div>
-          : <section className="activity-card device-list" aria-label="追加済みデバイス一覧">
-            {devices.map(d => {
-              const i = info[d.id]; const authed = hasSession(d.id); const isActive = d.id === activeId;
-              return <div className={`activity-row device-row ${isActive ? "is-active" : ""}`} key={d.id}>
-                <div className="event-symbol"><Cpu size={17} /></div>
-                <div className="activity-main">
-                  {editing === d.id
-                    ? <div className="device-rename"><input autoFocus aria-label="表示名" value={draft} maxLength={30} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveName(d.id); if (e.key === "Escape") setEditing(null); }} /><button className="text-button" onClick={() => saveName(d.id)} aria-label="名前を保存"><Check size={16} /></button><button className="text-button" onClick={() => setEditing(null)} aria-label="キャンセル"><X size={16} /></button></div>
-                    : <strong>{d.name}{isActive && <span className="device-badge">操作中</span>}</strong>}
-                  <small className="device-id">{d.id}</small>
-                  {authed && i?.state === "ok" && i.status.last_seen_at && <small>最終通信：{formatDateTime(i.status.last_seen_at)}</small>}
-                  {i?.state === "error" && <small className="device-row-error" role="alert">{i.httpStatus ? `HTTP ${i.httpStatus}: ` : ""}{i.message}</small>}
-                </div>
-                {statusPill(d.id)}
-                <div className="device-actions">
-                  {authed && !isActive && <button className="button button-outline" onClick={() => setActiveDevice(d.id)}>このデバイスを使う</button>}
-                  {!authed && <button className="button button-outline" onClick={() => { setReauth(reauth === d.id ? null : d.id); setReauthPassword(""); setError(""); }}><LockKeyhole size={14} />再ログイン</button>}
-                  <button className="text-button device-icon-button" onClick={() => { setEditing(d.id); setDraft(d.name); }} title="表示名を変更" aria-label={`${d.name}の表示名を変更`}><Pencil size={15} /></button>
-                  <button className="text-button device-icon-button" onClick={() => remove(d.id, d.name)} title="一覧から外す" aria-label={`${d.name}を一覧から外す`}><Trash2 size={15} /></button>
-                </div>
-                {reauth === d.id && !authed && <form className="device-reauth" onSubmit={e => void reauthSubmit(e, d.id)}>
-                  <p className="device-reauth-hint muted">登録時に設定したパスワードを入力してください。</p>
-                  <div className="input-wrap"><LockKeyhole size={16} /><input type="password" autoFocus autoComplete="current-password" placeholder="デバイスのパスワード" value={reauthPassword} onChange={e => setReauthPassword(e.target.value)} aria-label="デバイスのパスワード" required /></div>
-                  <button className="button button-primary" type="submit" disabled={busy || !reauthPassword}>{busy ? "認証しています…" : "再ログインする"}</button>
-                </form>}
-              </div>;
-            })}
-          </section>}
-      </section>
     </section>
 
     <section id="device-register-panel" className="device-tab-panel" role="tabpanel" aria-labelledby="device-register-tab" hidden={tab !== "register"}>
@@ -239,9 +215,50 @@ export default function DevicesPage() {
         <label className="sender-name-field" htmlFor="new-device-name">表示名（任意）
           <input id="new-device-name" value={newName} maxLength={30} onChange={e => setNewName(e.target.value)} placeholder="例：実家の玄関" />
         </label>
+        <div className="sender-name-field icon-field"><span>アイコン（任意）</span><IconPicker value={newIcon} onChange={setNewIcon} disabled={busy} /></div>
         <button className="button button-primary device-submit" type="submit" disabled={busy || !newId.trim() || newPassword.length < 8 || newPasswordConfirmation !== newPassword}><Plus size={16} />{busy ? "登録しています…" : "新しいデバイスを登録"}</button>
       </form>
       <div className="privacy-note"><KeyRound size={16} /><span>登録したデバイスは現在のアカウントに紐づきます。パスワードは安全に保管されます。</span></div>
+    </section>
+    </>}
+
+    <section className="device-saved-section" aria-label="このアカウントのデバイス">
+      <div className="section-heading device-panel-heading">
+        <div><h2>このアカウントのデバイス</h2><p className="muted">このアカウントで追加したデバイスだけを表示します。アイコンはこのブラウザにだけ保存されます。</p></div>
+        <button className="button button-outline" onClick={() => void load()}><RefreshCw size={15} />状態を更新</button>
+      </div>
+      {devices.length === 0
+        ? <div className="activity-card device-empty-state"><Cpu size={24} /><p>このアカウントには、まだデバイスがありません。</p><span>上のフォームから登録済みデバイスを追加するか、招待コードを受け取ってください。</span></div>
+        : <section className="activity-card device-list" aria-label="追加済みデバイス一覧">
+          {devices.map(d => {
+            const i = info[d.id]; const authed = hasSession(d.id); const isActive = d.id === activeId;
+            return <div className={`activity-row device-row ${isActive ? "is-active" : ""}`} key={d.id}>
+              <DeviceIcon icon={d.icon} size={38} />
+              <div className="activity-main">
+                {editing === d.id
+                  ? <div className="device-rename"><input autoFocus aria-label="表示名" value={draft} maxLength={30} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveName(d.id); if (e.key === "Escape") setEditing(null); }} /><button className="text-button" onClick={() => saveName(d.id)} aria-label="名前を保存"><Check size={16} /></button><button className="text-button" onClick={() => setEditing(null)} aria-label="キャンセル"><X size={16} /></button></div>
+                  : <strong>{d.name}{isActive && <span className="device-badge">操作中</span>}{d.role && <span className={`device-badge device-role-${d.role}`}>{d.role === "resident" ? "居住者" : "差し出し手"}</span>}</strong>}
+                <small className="device-id">{d.id}</small>
+                {authed && i?.state === "ok" && i.status.last_seen_at && <small>最終通信：{formatDateTime(i.status.last_seen_at)}</small>}
+                {i?.state === "error" && <small className="device-row-error" role="alert">{i.httpStatus ? `HTTP ${i.httpStatus}: ` : ""}{i.message}</small>}
+              </div>
+              {statusPill(d.id)}
+              <div className="device-actions">
+                {authed && !isActive && <button className="button button-outline" onClick={() => setActiveDevice(d.id)}>このデバイスを使う</button>}
+                {!authed && d.role !== "messenger" && <button className="button button-outline" onClick={() => { setReauth(reauth === d.id ? null : d.id); setReauthPassword(""); setError(""); }}><LockKeyhole size={14} />再ログイン</button>}
+                <button className="text-button device-icon-button" onClick={() => setIconEditing(iconEditing === d.id ? null : d.id)} title="アイコンを変更" aria-label={`${d.name}のアイコンを変更`} aria-expanded={iconEditing === d.id}><ImagePlus size={15} /></button>
+                <button className="text-button device-icon-button" onClick={() => { setEditing(d.id); setDraft(d.name); }} title="表示名を変更" aria-label={`${d.name}の表示名を変更`}><Pencil size={15} /></button>
+                <button className="text-button device-icon-button" onClick={() => remove(d.id, d.name)} title="一覧から外す" aria-label={`${d.name}を一覧から外す`}><Trash2 size={15} /></button>
+              </div>
+              {iconEditing === d.id && <div className="device-icon-editor"><IconPicker value={d.icon} onChange={icon => setDeviceIcon(d.id, icon ?? null)} /></div>}
+              {reauth === d.id && !authed && d.role !== "messenger" && <form className="device-reauth" onSubmit={e => void reauthSubmit(e, d.id)}>
+                <p className="device-reauth-hint muted">登録時に設定したパスワードを入力してください。</p>
+                <div className="input-wrap"><LockKeyhole size={16} /><input type="password" autoFocus autoComplete="current-password" placeholder="デバイスのパスワード" value={reauthPassword} onChange={e => setReauthPassword(e.target.value)} aria-label="デバイスのパスワード" required /></div>
+                <button className="button button-primary" type="submit" disabled={busy || !reauthPassword}>{busy ? "認証しています…" : "再ログインする"}</button>
+              </form>}
+            </div>;
+          })}
+        </section>}
     </section>
   </div>;
 }

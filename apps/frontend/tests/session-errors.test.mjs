@@ -93,6 +93,43 @@ test("auth config reads the Google client id", async () => {
   assert.deepEqual(await api.getAuthConfig(), { google_client_id: "client-id" });
 });
 
+test("residents can request an invitation for a specific device", async () => {
+  devices.clearAllSessions();
+  devices.saveUserAccount({ token: "resident-token", userId: 7 });
+  let request;
+  globalThis.fetch = async (url, init) => {
+    request = { url: String(url), init };
+    return Response.json({ code: "ABCD2345", expires_at: "2099-01-01T00:00:00Z" }, { status: 201 });
+  };
+
+  assert.deepEqual(await api.createDeviceInvitation("home-1"), {
+    code: "ABCD2345",
+    expires_at: "2099-01-01T00:00:00Z",
+  });
+  assert.equal(request.url, "/api/devices/home-1/invitations");
+  assert.equal(request.init.method, "POST");
+  assert.ok(new Headers(request.init.headers).has("Authorization"));
+});
+
+test("accepting an invitation registers and selects the shared device", async () => {
+  devices.clearAllSessions();
+  devices.saveUserAccount({ token: "messenger-token", userId: 8 });
+  let body;
+  globalThis.fetch = async (url, init) => {
+    assert.equal(String(url), "/api/invitations/accept");
+    body = JSON.parse(init.body);
+    return Response.json({ device_id: "shared-home", role: "messenger" });
+  };
+
+  assert.deepEqual(await api.acceptDeviceInvitation(" abcd2345 "), {
+    device_id: "shared-home",
+    role: "messenger",
+  });
+  assert.deepEqual(body, { code: "ABCD2345" });
+  assert.equal(devices.getActiveDeviceId(), "shared-home");
+  assert.equal(devices.getSession("shared-home").token, "messenger-token");
+});
+
 test("a delayed 401 from the old login does not erase a new login", async () => {
   devices.clearAllSessions();
   devices.saveSession({ token: "old-token", device_id: "my-device" });

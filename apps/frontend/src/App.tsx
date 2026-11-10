@@ -6,11 +6,13 @@ import VoicePage from "./pages/VoicePage";
 import SettingsPage from "./pages/SettingsPage";
 import DevicesPage from "./pages/DevicesPage";
 import LoginPage from "./pages/LoginPage";
+import InvitePage from "./pages/InvitePage";
+import ReceivePage from "./pages/ReceivePage";
 import { clearAllSessions, useDevices } from "./devices";
 
 export default function App() {
   // アカウントにログインしていれば認証済み。セッションが切れるとログイン画面へ戻る
-  const { authenticated, devices } = useDevices();
+  const { authenticated, devices, activeRole } = useDevices();
   const navigate = useNavigate();
   const home = devices.length ? "/" : "/devices";
   const handleLogout = () => { clearAllSessions(); navigate("/login", { replace: true }); };
@@ -22,6 +24,9 @@ export default function App() {
       <Route path="/voice" element={<VoicePage />} />
       <Route path="/settings" element={<SettingsPage />} />
       <Route path="/devices" element={<DevicesPage />} />
+      {/* 招待コードの発行は居住者、受け取りは差し出し手の画面。受け取りは、まだ家がないアカウントにも必要 */}
+      <Route path="/invite" element={activeRole === "messenger" ? <Navigate to="/receive" replace /> : <InvitePage />} />
+      <Route path="/receive" element={<ReceivePage />} />
     </Route>
     <Route path="*" element={<Navigate to={authenticated ? home : "/login"} replace />} />
   </Routes>;
