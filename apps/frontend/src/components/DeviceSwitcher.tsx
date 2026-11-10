@@ -1,10 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Settings2 } from "lucide-react";
 import { setActiveDevice, useDevices } from "../devices";
+import DeviceIcon from "./DeviceIcon";
 
 /** 操作するデバイスの切り替え。ログインしていないデバイスを選ぶと、デバイス管理で再ログインできる */
 export default function DeviceSwitcher({ compact = false }: { compact?: boolean }) {
-  const { devices, activeId, hasSession } = useDevices();
+  const { devices, activeId, hasSession, active } = useDevices();
   const navigate = useNavigate();
   const change = (id: string) => { if (!setActiveDevice(id)) navigate("/devices"); };
   if (!devices.length) return <div className={`device-switcher ${compact ? "is-compact" : ""}`}>
@@ -14,6 +15,7 @@ export default function DeviceSwitcher({ compact = false }: { compact?: boolean 
   return <div className={`device-switcher ${compact ? "is-compact" : ""}`}>
     {!compact && <label htmlFor="device-select">操作中のロボット</label>}
     <div className="device-select-row">
+      {!compact && <DeviceIcon icon={active?.icon} size={38} />}
       <select id="device-select" aria-label="操作中のロボット" value={activeId} onChange={e => change(e.target.value)}>
         {devices.map(d => <option key={d.id} value={d.id}>{d.name}{hasSession(d.id) ? "" : "（要ログイン）"}</option>)}
       </select>

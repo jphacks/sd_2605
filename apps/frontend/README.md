@@ -9,7 +9,8 @@
 - デバイスのオンライン状態・最終通信・メッセージ登録状況の表示
 - イベント履歴の表示
 - ブラウザ録音、録音の試聴、WAV変換、メッセージ登録
-- デバイスの再生音量設定
+- デバイスの再生音量・外出時／帰宅時の挨拶設定
+- デバイスの招待コード発行・受け取りによる家族や友人との共有
 
 ## 技術構成
 - React 18 / TypeScript / Vite
@@ -42,6 +43,7 @@ npm run dev
 ## コマンド
 ```bash
 npm run dev        # 開発サーバー
+npm test           # フロントエンドのAPI・デバイス管理テスト
 npm run typecheck  # TypeScript型チェック
 npm run build      # 型チェック後に本番ビルド
 npm run preview    # ビルド成果物のプレビュー
@@ -50,9 +52,8 @@ npm run preview    # ビルド成果物のプレビュー
 ## APIと認証
 - 新規登録は `POST /api/users`、ログインは `POST /api/user_sessions` を使用します。どちらも Rails が発行した JWT を受け取り、ブラウザセッション中のみ `sessionStorage` に保存します。
 - デバイス管理画面で登録したデバイスID・パスワードは `POST /api/devices` に送信し、ログイン中ユーザーの所有デバイスとして保存します。既存デバイスへの再ログインは `POST /api/sessions` を使用します。
-- フロントエンドが利用するHTTP APIの契約は [API_CONTRACT.md](./API_CONTRACT.md) を参照してください。
-- バックエンド担当への実装・確認事項は [BACKEND_HANDOFF.md](./BACKEND_HANDOFF.md) を参照してください。
-- M5Stack側のプロトコル・動作要件は [HARDWARE_HANDOFF.md](./HARDWARE_HANDOFF.md) を参照してください。
+- デバイス管理画面では `POST /api/devices/:device_id/invitations` で招待コードを発行し、`POST /api/invitations/accept` で受け取ります。招待コードは24時間有効で、1回だけ使用できます。招待されたアカウントは音声を登録できます。
+- 設定画面は `GET` / `PATCH /api/devices/:device_id/settings` の `volume`、`leave_greeting_enabled`、`arrive_greeting_enabled` を使用します。これらの設定変更は居住者のみ許可されます。
 - 全体要件と受け入れ条件は [SPECIFICATION.md](./SPECIFICATION.md) を参照してください。
 - WebログインのBearer tokenとデバイスのポーリング認証は別系統です。フロントエンドはWeb tokenを `sessionStorage` に保存し、ブラウザセッション中のみ利用します。HTTPSを必須とし、XSS対策とCSPも本番構成で検討してください。
 
@@ -60,7 +61,7 @@ npm run preview    # ビルド成果物のプレビュー
 - Rails APIと実機M5Stackがない状態では、エンドツーエンド動作は確認できません。
 - フロントエンドの自動テストはまだありません。バックエンドのユーザー・デバイス認証 API には Rails テストがあります。
 - `npm run typecheck` は型チェックです。`npm run build` は依存関係のインストール状態に左右されます。
-- デバイス管理用の `/api/sessions` は現状開発・テスト環境向けです。実運用のデバイス認証方式はバックエンド側で別途確定してください。
+- デバイスの招待コード発行・設定変更は居住者のみ可能です。招待されたメッセンジャーは音声登録ができ、デバイス設定は変更できません。
 - ブラウザ録音形式はブラウザ依存です。WAV変換対応・マイク権限・音質をChrome等の対象ブラウザで実機確認してください。
 
 ## ディレクトリ
@@ -72,11 +73,7 @@ src/
   components/            共通レイアウト・ロボット表示・デバイス切替
   pages/                 ログイン、ホーム、履歴、音声登録、設定、デバイス管理
   types.ts               UI用共通型
-API_CONTRACT.md          API契約
-MULTI_DEVICE.md          複数デバイス設計メモ
-BACKEND_HANDOFF.md       バックエンド申し送り
-HARDWARE_HANDOFF.md      ハードウェア申し送り
-SPECIFICATION.md         システム仕様・受け入れ条件
+SPECIFICATION.md          システム仕様・受け入れ条件
 ```
 
 ## 開発時の注意

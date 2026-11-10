@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleStop, Download, House, LogOut, Mic, Music2, Square, Trash2, Volume2 } from "lucide-react";
 import { blobToWav16kMono, formatBytes } from "../audio";
-import { apiRequest, devicePath } from "../api";
+import { apiRequest, devicePath, formatDateTime } from "../api";
+import type { AudioMeta, DeviceStatus } from "../api";
 import { useDevices } from "../devices";
 
 const MAX_SECONDS = 5;
@@ -26,11 +27,21 @@ export default function VoicePage() {
   const [isPrepared, setIsPrepared] = useState(false);
   const [wavBlob, setWavBlob] = useState<Blob | null>(null);
   const [micError, setMicError] = useState("");
+  const [registered, setRegistered] = useState<Record<AudioSlot, AudioMeta | null> | null | undefined>(undefined); // undefined=確認中 / null=取得失敗
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunks = useRef<BlobPart[]>([]);
   const timer = useRef<number | undefined>(undefined);
   const secondsRef = useRef(0);
+
+  // 声のレパートリー（外出・帰宅それぞれの登録状況）。バックエンドが持つ声は、この2種類
+  const loadRegistered = async () => {
+    try {
+      const status = await apiRequest<DeviceStatus>(devicePath("/status"));
+      setRegistered({ leave: status.leave_audio ?? null, arrive: status.arrive_audio ?? status.message_audio ?? null });
+    } catch { setRegistered(null); }
+  };
+  useEffect(() => { void loadRegistered(); }, []);
 
   useEffect(() => () => {
     if (timer.current) window.clearInterval(timer.current);
@@ -129,6 +140,7 @@ export default function VoicePage() {
       form.append("slot", audioSlot);
       const result = await apiRequest<{ file_name?: string; version?: number; byte_size?: number }>(devicePath("/message"), { method: "POST", body: form });
       setIsPrepared(true);
+      void loadRegistered();
       setMessage(`「${active?.name ?? ""}」に${selectedSlot.label}用の音声を登録しました${result?.version ? `（バージョン ${result.version}）` : ""}。${playback}`);
     } catch (error) {
       setMessage(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "音声を登録できませんでした。接続先と入力内容を確認してください。");
@@ -154,7 +166,8 @@ export default function VoicePage() {
         <div className="section-heading"><div><h2>メッセージの確認</h2><p className="muted">保存前に再生して確認できます。</p></div><div className="preview-icon"><Volume2 size={18} /></div></div>
         {audio && audioUrl ? <div className="audio-preview"><div className="audio-file-icon"><Music2 size={20} /></div><div className="audio-file-info"><strong>録音したメッセージ</strong><small>{formatBytes(audio.size)} ・ 元の録音データ</small></div><audio controls src={audioUrl} /></div> : <div className="preview-empty"><div className="preview-empty-icon"><Mic size={23} /></div><strong>まだ録音されていません</strong><p>録音すると、ここで試聴できます。</p></div>}
         <div className="voice-target">登録先：<strong>{active?.name}</strong><small>{active?.id}</small></div>
-        <div className="slot-choice" role="radiogroup" aria-label="再生するタイミング">{AUDIO_SLOTS.map(slot => <button type="button" key={slot.id} role="radio" aria-checked={audioSlot === slot.id} className={audioSlot === slot.id ? "is-selected" : ""} onClick={() => selectSlot(slot.id)} disabled={sending || recording}>{slot.id === "leave" ? <LogOut size={16} /> : <House size={16} />}<span><strong>{slot.label}</strong><small>{slot.phrase}</small></span></button>)}</div>
+        <div className="slot-choice" role="radiogroup" aria-label="再生するタイミング">{AUDIO_SLOTS.map(slot => <button type="button" key={slot.id} role="radio" aria-checked={audioSlot === slot.id} className={audioSlot === slot.id ? "is-selected" : ""} onClick={() => selectSlot(slot.id)} disabled={sending || recording}>{slot.id === "leave" ? <LogOut size={16} /> : <House size={16} />}<span><strong>{slot.label}</strong><small>{slot.phrase}</small><em className={`slot-state ${registered?.[slot.id] ? "is-registered" : ""}`}>{registered === undefined ? "登録状況を確認中" : registered === null ? "登録状況を取得できません" : registered[slot.id] ? `登録済み・${registered[slot.id]?.registered_by || "登録者不明"}・${formatDateTime(registered[slot.id]?.updated_at)}` : "未登録（標準の音声）"}</em></span></button>)}</div>
+        <p className="slot-note">録音した声は、選んだ枠の声に置き換わります。枠は「外出」と「帰宅」の2つです。</p>
         <label className="sender-name-field">登録者名（ニックネーム）<input value={senderName} onChange={e => setSenderName(e.target.value)} maxLength={40} placeholder="例：お母さん、ゆうた" required /></label>
         <div className="format-info"><span>変換後の形式</span><strong>WAV · PCM 16bit · 16 kHz · モノラル</strong><small>最大5秒 / 200 KB以下</small></div>
         <div className="preview-actions">
