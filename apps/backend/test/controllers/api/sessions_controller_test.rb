@@ -33,6 +33,7 @@ module Api
       response_data = response.parsed_body
       assert_equal device.id, response_data["device_id"]
       assert_equal user.id, JsonWebToken.decode(response_data["token"])["sub"]
+      assert_equal "resident", response_data["role"]
     end
 
     test "adds another signed-in user who knows the device password" do
@@ -52,6 +53,24 @@ module Api
       assert_equal user.id, JsonWebToken.decode(response_data["token"])["sub"]
       assert_equal owner, device.reload.user
       assert_includes device.members, user
+      assert_equal "resident", response_data["role"]
+    end
+
+    test "keeps a messenger role when that user signs in with the device password" do
+      owner = User.create!(email: "owner@example.com", password: "password1")
+      messenger = User.create!(email: "messenger@example.com", password: "password1")
+      device = Device.create!(id: "entrance-2", user: owner, password: "device-pass-1")
+      device.grant_access_to!(messenger, role: "messenger")
+      user_token = JsonWebToken.encode(messenger.id).first
+
+      post "/api/sessions",
+        params: { device_id: device.id, password: "device-pass-1" },
+        as: :json,
+        headers: { "Authorization" => "Bearer #{user_token}" }
+
+      assert_response :success
+      assert_equal "messenger", response.parsed_body["role"]
+      assert_equal "messenger", device.device_memberships.find_by!(user: messenger).role
     end
 
     test "does not add another user when the device password is wrong" do
