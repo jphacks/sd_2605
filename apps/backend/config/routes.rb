@@ -8,7 +8,7 @@ Rails.application.routes.draw do
   namespace :api do
     get "health", to: "health#show"
     post "sessions", to: "sessions#create"
-    resources :devices, only: [ :create ] do
+    resources :devices, only: [ :index, :create ] do
       resources :invitations, only: [ :create ], controller: "device_invitations"
     end
     post "invitations/accept", to: "invitations#accept"
