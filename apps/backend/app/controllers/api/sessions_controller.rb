@@ -51,6 +51,7 @@ module Api
         token: token,
         device_id: device.id,
         expires_at: expires_at.iso8601,
+        role: device.role_for(user),
         user: { id: user.id, email: user.email }
       }
     end

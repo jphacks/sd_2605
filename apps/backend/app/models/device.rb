@@ -27,6 +27,14 @@ class Device < ApplicationRecord
     user.present? && device_memberships.exists?(user: user, role: "messenger")
   end
 
+  # Membership is the role the list API already returns. The registrant stays a resident
+  # even when that membership row has not been backfilled.
+  def role_for(user)
+    return unless user
+
+    device_memberships.find_by(user: user)&.role || ("resident" if resident?(user))
+  end
+
   # Rejoining keeps the existing role. The given role applies only to a new membership.
   def grant_access_to!(user, role: "resident")
     device_memberships.find_or_create_by!(user: user) { |membership| membership.role = role }

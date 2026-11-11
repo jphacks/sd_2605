@@ -15,6 +15,7 @@ module Api
       get "/api/devices/#{@device.id}/status", headers: @headers
       assert_response :success
       assert_equal @device.id, response.parsed_body["device_id"]
+      assert_equal "resident", response.parsed_body["role"]
       assert_equal false, response.parsed_body["online"]
 
       get "/api/devices/#{@device.id}/settings", headers: @headers
@@ -81,7 +82,12 @@ module Api
         as: :json,
         headers: headers
       assert_response :success
+      assert_equal "messenger", response.parsed_body["role"]
       assert_equal "messenger", @device.device_memberships.find_by!(user: messenger).role
+
+      get "/api/devices/#{@device.id}/status", headers: headers
+      assert_response :success
+      assert_equal "messenger", response.parsed_body["role"]
       patch "/api/devices/#{@device.id}/settings", params: { volume: 10 }, as: :json, headers: headers
       assert_response :forbidden
     end
@@ -177,6 +183,7 @@ module Api
       post "/api/devices/#{@device.id}/heartbeat", params: {}, as: :json
       assert_response :ok
       body = response.parsed_body
+      assert_nil body["role"]
       %w[leave arrive].each do |slot|
         meta = body.fetch("#{slot}_audio")
         assert_equal 1, meta["version"]

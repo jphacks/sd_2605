@@ -8,6 +8,7 @@ class DeviceMembershipTest < ActiveSupport::TestCase
 
   test "device registration creates a resident membership" do
     assert_equal "resident", @device.device_memberships.find_by!(user: @owner).role
+    assert_equal "resident", @device.role_for(@owner)
     assert @device.resident?(@owner)
     assert_not @device.messenger?(@owner)
   end
@@ -19,6 +20,7 @@ class DeviceMembershipTest < ActiveSupport::TestCase
     @device.grant_access_to!(member)
 
     assert_equal "messenger", @device.device_memberships.find_by!(user: member).role
+    assert_equal "messenger", @device.role_for(member)
     assert @device.messenger?(member)
     assert_not @device.resident?(member)
   end

@@ -51,7 +51,8 @@ npm run preview    # ビルド成果物のプレビュー
 
 ## APIと認証
 - 新規登録は `POST /api/users`、ログインは `POST /api/user_sessions` を使用します。どちらも Rails が発行した JWT を受け取り、ブラウザセッション中のみ `sessionStorage` に保存します。
-- デバイス管理画面で登録したデバイスID・パスワードは `POST /api/devices` に送信し、ログイン中ユーザーの所有デバイスとして保存します。既存デバイスへの再ログインは `POST /api/sessions` を使用します。
+- デバイス管理画面で登録したデバイスID・パスワードは `POST /api/devices` に送信し、ログイン中ユーザーの所有デバイスとして保存します。既存デバイスへの再ログインは `POST /api/sessions` を使用します。どちらの応答にも、その家での `role`（`resident` または `messenger`）が入ります。
+- `GET /api/devices/:device_id/status` にも、ログイン中のユーザーのその家での `role` が入ります。
 - `GET /api/devices` は、ログイン中のユーザーが参加している家を返します。応答は `devices` 配列で、各要素は `device_id` と `role`（`resident` または `messenger`）です。並びは `device_id` の昇順で、パスワードは含みません。
 - デバイス管理画面では `POST /api/devices/:device_id/invitations` で招待コードを発行し、`POST /api/invitations/accept` で受け取ります。招待コードは24時間有効で、1回だけ使用できます。招待されたアカウントは音声を登録できます。
 - 設定画面は `GET` / `PATCH /api/devices/:device_id/settings` の `volume`、`leave_greeting_enabled`、`arrive_greeting_enabled` を使用します。これらの設定変更は居住者のみ許可されます。

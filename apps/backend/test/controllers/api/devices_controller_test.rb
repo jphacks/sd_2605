@@ -49,6 +49,7 @@ module Api
 
       assert_response :created
       assert_equal "entrance-2", response.parsed_body["device_id"]
+      assert_equal "resident", response.parsed_body["role"]
       device = Device.find("entrance-2")
       assert_equal @user, device.user
       assert_equal "resident", device.device_memberships.find_by!(user: @user).role
@@ -69,6 +70,7 @@ module Api
 
       assert_response :success
       assert_equal "entrance-2", response.parsed_body["device_id"]
+      assert_equal "resident", response.parsed_body["role"]
     end
 
     test "rejects registration without a user session" do
@@ -107,6 +109,22 @@ module Api
       assert_includes device.members, @user
       assert_equal "resident", device.device_memberships.find_by!(user: @user).role
       assert_equal "resident", device.device_memberships.find_by!(user: other_user).role
+      assert_equal "resident", response.parsed_body["role"]
+    end
+
+    test "returns the existing messenger role when that user adds the device with its password" do
+      device = Device.create!(id: "entrance-2", user: @user, password: "device-pass-1")
+      messenger = User.create!(email: "messenger@example.com", password: "password1")
+      device.grant_access_to!(messenger, role: "messenger")
+
+      post "/api/devices",
+        params: { device_id: "entrance-2", password: "device-pass-1" },
+        as: :json,
+        headers: { "Authorization" => "Bearer #{JsonWebToken.encode(messenger.id).first}" }
+
+      assert_response :success
+      assert_equal "messenger", response.parsed_body["role"]
+      assert_equal "messenger", device.device_memberships.find_by!(user: messenger).role
     end
 
     test "does not add another user when the device password is wrong" do

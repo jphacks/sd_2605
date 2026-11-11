@@ -102,7 +102,7 @@ WAV本体はPostgreSQLに保存し、版番号と同時に更新します。デ�
 
 #### API・データ
 
-- RailsのJSON API: ユーザー認証、Googleログイン、デバイス登録・共有、参加中の家と役割の一覧、設定、音声登録・取得、heartbeat、イベント履歴。
+- RailsのJSON API: ユーザー認証、Googleログイン、デバイス登録・共有・再ログイン・状態取得（応答にその家での役割を含む）、参加中の家と役割の一覧、設定、音声登録・取得、heartbeat、イベント履歴。
 - Web Audio API / MediaRecorder: ブラウザ録音、試聴、16kHzモノラルWAVへの変換。
 - PostgreSQL: ユーザー、デバイス、共有メンバー、設定、イベント、音声本体（bytea）の保存。
 - デバイス向けAPIは認証なしで、`POST /api/devices/:device_id/heartbeat`、`GET /api/devices/:device_id/audio/:slot`、`POST /api/devices/:device_id/events` を提供します。未知の端末は404になり、自動では登録しません。状態・履歴・設定・音声登録は、ログインと、そのアカウントがそのデバイスを使えることの確認が必要です。
