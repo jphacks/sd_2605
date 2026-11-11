@@ -4,6 +4,11 @@ module Api
 
     before_action :authenticate_user!
 
+    def index
+      memberships = current_user.device_memberships.order(device_id: :asc)
+      render json: { devices: memberships.map { |membership| membership_json(membership) } }
+    end
+
     def create
       device = Device.find_by(id: device_id)
       if device
@@ -25,6 +30,10 @@ module Api
     end
 
     private
+
+    def membership_json(membership)
+      { device_id: membership.device_id, role: membership.role }
+    end
 
     def device_id
       params[:device_id].to_s.strip
