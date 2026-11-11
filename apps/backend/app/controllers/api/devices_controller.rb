@@ -15,12 +15,12 @@ module Api
         return render_device_conflict unless device.authenticate(device_password)
 
         device.grant_access_to!(current_user)
-        return render json: { device_id: device.id }
+        return render json: { device_id: device.id, role: device.role_for(current_user) }
       end
 
       device = Device.new(id: device_id, password: device_password, user: current_user)
       device.save!
-      render json: { device_id: device.id }, status: :created
+      render json: { device_id: device.id, role: device.role_for(current_user) }, status: :created
     rescue ActiveRecord::RecordInvalid => e
       render json: {
         error: { code: "invalid_params", message: device_error_message(e.record) }

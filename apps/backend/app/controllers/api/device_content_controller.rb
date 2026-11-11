@@ -33,7 +33,7 @@ module Api
       leave = registered["leave"]
       arrive_audio = arrive ? DeviceAudioStore.metadata(@device, @setting, "arrive") : nil
       render json: {
-        device_id: @device.id, online: @device.online?, last_seen_at: @device.last_seen_at&.iso8601,
+        device_id: @device.id, role: @device.role_for(current_user), online: @device.online?, last_seen_at: @device.last_seen_at&.iso8601,
         message_count: arrive ? 1 : 0,
         message_audio: arrive_audio,
         leave_audio: leave ? DeviceAudioStore.metadata(@device, @setting, "leave") : nil,
