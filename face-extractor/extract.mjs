@@ -37,6 +37,12 @@ Rules:
 - Choose only from the allowed values.
 - bg: pick a pastel that suits the person's skin tone or clothing. It is a style choice, not a skin match.
 - hair: pick "none" unless the person clearly has bangs/fringe covering the forehead.
+- eyes: choose by how the person's eyes look in the photo (shape, lashes, makeup).
+  - "male": plain round eyes.
+  - "female": eyes with eyeliner (a winged upper lid line).
+  - "halfmoon": half-moon, relaxed or smiling eyes.
+  - "lashed": round eyes with lashes but no eyeliner.
+  Do not infer gender, age or ethnicity.
 - eyeColor: the iris colour. If it is hard to see, pick "black" or "brown" and add "eyeColor" to uncertain.
 - beard: "none" if clean-shaven or no clear facial hair.
 - mouth: based on the smile in the photo (teeth visible -> teeth-smile).

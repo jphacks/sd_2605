@@ -47,3 +47,8 @@ pnpm-debug.log*
 ._*
 Thumbs.db
 Desktop.ini
+
+me.jpg
+face-extractor/*.jpg
+face-extractor/*.png
+.env
