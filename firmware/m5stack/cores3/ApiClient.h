@@ -7,6 +7,7 @@
 #include "AudioSyncPolicy.h"
 #include "WavValidation.h"
 #include <atomic>
+#include "VoiceReplyQueue.h"
 // HTTPClient decodes both Content-Length and chunked bodies into this bounded sink.
 class BoundedBody : public Stream {
   Storage* storage;
@@ -217,6 +218,38 @@ class ApiClient {
     h.end();
   }
   static void task(void* p) { static_cast<ApiClient*>(p)->run(); }
+  void sendVoiceReply() {
+    if (VoiceReply::state.load() != VoiceReply::READY) return;
+    if (VoiceReply::occurredAt < 1767225600)
+      VoiceReply::occurredAt = time(nullptr) - uint32_t(millis() - VoiceReply::detectedAt) / 1000;
+    tm t; char utc[24]; gmtime_r(&VoiceReply::occurredAt, &t);
+    strftime(utc, sizeof(utc), "%Y-%m-%dT%H:%M:%SZ", &t);
+    JsonDocument d;
+    d["event_id"] = VoiceReply::eventId;
+    d["event_type"] = VoiceReply::slot ? "left_home" : "arrived_home";
+    d["occurred_at"] = utc;
+    String body; serializeJson(d, body);
+    WiFiClient c; WiFiClientSecure tls; HTTPClient h;
+    if (!begin(h, c, tls, endpoint("/events"))) return;
+    h.addHeader("Content-Type", "application/json");
+    int result = h.POST(body);
+    h.end();
+    Serial.printf("[REPLY] event HTTP %d\n", result);
+    if (result != 200 && result != 201) return;
+    String path = endpoint("/events/") + VoiceReply::eventId + "/voice";
+    if (!begin(h, c, tls, path)) return;
+    h.addHeader("Content-Type", "audio/wav");
+    result = h.POST(VoiceReply::wav, VoiceReply::bytes);
+    h.end();
+    Serial.printf("[REPLY] voice HTTP %d bytes=%u\n", result, unsigned(VoiceReply::bytes));
+    if (result == 200 || result == 201) {
+      StorageGuard guard(s);
+      if (LittleFS.exists("/voice-reply.bin") && !LittleFS.remove("/voice-reply.bin")) {
+        Serial.println("[REPLY] saved reply cleanup failed; retrying"); return;
+      }
+      VoiceReply::state.store(VoiceReply::IDLE);
+    }
+  }
   void run() {
     uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000,
              wifiAt = millis() - 15000;
@@ -257,6 +290,7 @@ class ApiClient {
         if (now - retry >= 10000) {
           retry = now;
           sendEvent();
+          sendVoiceReply();
         }
       }
       vTaskDelay(pdMS_TO_TICKS(50));

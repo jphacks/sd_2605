@@ -8,6 +8,10 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <ctime>
+#ifdef _WIN32
+inline tm* gmtime_r(const time_t* value, tm* result) { return gmtime_s(result, value) == 0 ? result : nullptr; }
+#endif
 class String : public std::string {
  public:
   using std::string::string;
@@ -17,10 +21,13 @@ class String : public std::string {
   bool startsWith(const char* p) const { return rfind(p, 0) == 0; }
   bool isEmpty() const { return empty(); }
   bool concat(const char* p, size_t n) { append(p, n); return true; }
+  size_t write(uint8_t b) { push_back(char(b)); return 1; }
+  size_t write(const uint8_t* p, size_t n) { append(reinterpret_cast<const char*>(p), n); return n; }
 };
 #include <ArduinoJson.h>
 namespace ArduinoJson {
 template<> struct Converter<String> {
+ static void toJson(const String& value, JsonVariant out) { out.set(static_cast<const std::string&>(value)); }
  static String fromJson(JsonVariantConst v) { return String(v.as<const char*>()); }
  static bool checkJson(JsonVariantConst v) { return v.is<const char*>(); }
 };
@@ -90,15 +97,18 @@ struct { int status(){return WL_CONNECTED;} void disconnect(){} void begin(const
 struct Reply { int status=200; std::string body; int declared=-1; int truncate=-1; };
 std::map<std::string,Reply> replies;
 std::map<std::string,int> calls;
+std::map<std::string,String> postedBodies;
+std::map<std::string,String> contentTypes;
 constexpr int HTTPC_DISABLE_FOLLOW_REDIRECTS=0;
 struct HTTPClient {
  String url; Reply response;
  void setConnectTimeout(int){} void setTimeout(int){} void setReuse(bool){} void setFollowRedirects(int){}
  bool begin(WiFiClientSecure& c,const String& u) { assert(c.rooted); url=u; return true; }
  bool begin(WiFiClient&,const String& u) { url=u; return true; }
- void addHeader(const char*,const char*){}
+ void addHeader(const char* name,const char* value){ if(std::string(name)=="Content-Type") contentTypes[url]=value; }
  int GET() { ++calls[url]; response=replies.at(url); return response.status; }
- int POST(const String&) { return GET(); }
+ int POST(const String& body) { postedBodies[url]=body; return GET(); }
+ int POST(uint8_t*, size_t n) { assert(n == 96044); return GET(); }
  int getSize() {return response.declared;}
  int writeToStream(Stream* out) {
   size_t n=response.truncate<0?response.body.size():size_t(response.truncate);

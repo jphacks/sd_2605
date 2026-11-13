@@ -34,12 +34,19 @@ void cameraDrawFace(uint32_t now) {
   uint32_t phase = now % 4000;
   int blink = phase < 120 ? phase * 100 / 120 : phase < 240 ? (240 - phase) * 100 / 120 : 0;
   int mood = M5.Speaker.isPlaying() ? MOOD_SING : MOOD_IDLE;
+  bool recording = VoiceReply::state.load() == VoiceReply::RECORDING;
+  static bool previousRecording = false;
   static int previousBlink = -1, previousMood = -1;
-  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood) return;
+  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood && recording == previousRecording) return;
   if (cameraFaceBuffered) {
     drawFace(cameraFaceCanvas, mood, blink, cameraFaces[cameraFaceIndex]);
     cameraFaceCanvas.pushSprite(0, 0);
   } else drawFace(M5.Display, mood, blink, cameraFaces[cameraFaceIndex]);
+  if (recording) {
+    M5.Display.setTextColor(TFT_WHITE, TFT_RED);
+    M5.Display.drawString("REC 3 sec - speak now", 80, 216);
+  }
+  previousRecording = recording;
   previousBlink = blink; previousMood = mood;
   cameraScreenDirty = false;
 }
@@ -90,7 +97,8 @@ void cameraDrawDebugControls() {
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
   if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
-  if (cameraStorageOK && ENABLE_AUTO_EVENTS && event.action != PassageAction::NONE)
+  if (cameraStorageOK && ENABLE_AUTO_EVENTS && event.action != PassageAction::NONE &&
+      VoiceReply::state.load() == VoiceReply::IDLE)
     cameraEvents.enqueue(event.action == PassageAction::ARRIVE ? 0 : 1);
   Serial.printf("[DIRECTION EVENT] seq=%lu direction=%s action=%s\n", (unsigned long)event.directionCount,
                 directionName(event.directionEvent.direction), actionName(event.action));
@@ -122,7 +130,7 @@ void cameraAdjustVolume(int action) {
 }
 void cameraSound() {
   cameraApplyVolume();
-  bool started = cameraSpeakerOK && !M5.Speaker.isPlaying() && M5.Speaker.tone(1200, 300);
+  bool started = !VoiceReply::audioBusy() && cameraSpeakerOK && !M5.Speaker.isPlaying() && M5.Speaker.tone(1200, 300);
   Serial.printf("[SOUND] started=%d\n", started);
   if (started) Serial.println("[AUDIO] PLAY");
   cameraNotify(started ? "TEST SOUND started" : "SOUND failed/busy");
@@ -175,6 +183,7 @@ void setup() {
     vision.invertArrivalDeparture.store(cameraStorage.prefs.getBool(
         "invertMap", MotionDirectionConfig::invertArrivalDeparture));
     cameraVoiceBegin();
+    VoiceReply::restore(cameraStorage);
     if (!cameraApi.start()) Serial.println("[API] task creation failed");
   } else Serial.println("[FS] NVS/mutex initialization failed");
   cameraFaceCanvas.setColorDepth(16);
@@ -196,6 +205,7 @@ void loop() {
   // Let it finish before the UI starts polling that bus.
   if (vision.cameraBusReady.load()) M5.update();
   uint32_t now = millis();
+  VoiceReply::update(!M5.Speaker.isPlaying() && cameraVoiceReleased.load(), cameraStorage);
   if (cameraStorageOK) cameraVoiceRefresh(now);
   if (PirConfig::PIR_ENABLED) {
     bool level = digitalRead(PirConfig::PIR_PIN) == HIGH;
