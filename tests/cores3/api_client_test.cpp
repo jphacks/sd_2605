@@ -82,6 +82,20 @@ int main() {
  assert(submitted["event_id"].as<std::string>()=="reply-test");
  assert(submitted["event_type"].as<std::string>()=="left_home");
  assert(contentTypes[url("events/reply-test/voice")]=="audio/wav");
+ static_assert(VoiceReply::durationMs==10000 && VoiceReply::bytes==320044);
+ VoiceReply::pendingBytes=96044; // Pending replies from the old firmware remain sendable.
+ VoiceReply::state.store(VoiceReply::READY); api.start();
+ assert(VoiceReply::state.load()==VoiceReply::IDLE);
+ VoiceReply::pendingBytes=32044;
+ VoiceReply::state.store(VoiceReply::READY); api.start();
+ assert(postedSizes[url("events/reply-test/voice")]==32044);
+ int uploads=calls[url("events/reply-test/voice")];
+ VoiceReply::pendingBytes=0;
+ VoiceReply::state.store(VoiceReply::READY); api.start();
+ assert(VoiceReply::state.load()==VoiceReply::IDLE);
+ assert(calls[url("events/reply-test/voice")]==uploads);
+ assert(!deserializeJson(submitted,postedBodies[url("events")]));
+ assert(submitted["voice"].isNull()); // No voice attachment or skipped-recording mail.
  puts("ApiClient: existing sync/event regressions and voice event failure, upload retry, acknowledgement cleanup passed");
  return 0;
 }

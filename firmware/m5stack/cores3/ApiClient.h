@@ -237,12 +237,18 @@ class ApiClient {
     h.end();
     Serial.printf("[REPLY] event HTTP %d\n", result);
     if (result != 200 && result != 201) return;
+    if (!VoiceReply::pendingBytes) {
+      VoiceReply::state.store(VoiceReply::IDLE);
+      Serial.println("[REPLY] event acknowledged without voice or voice mail"); return;
+    }
     String path = endpoint("/events/") + VoiceReply::eventId + "/voice";
     if (!begin(h, c, tls, path)) return;
     h.addHeader("Content-Type", "audio/wav");
-    result = h.POST(VoiceReply::wav, VoiceReply::bytes);
+    // Reply upload also waits for the server's synchronous mail notification.
+    h.setTimeout(45000);
+    result = h.POST(VoiceReply::wav, VoiceReply::pendingBytes);
     h.end();
-    Serial.printf("[REPLY] voice HTTP %d bytes=%u\n", result, unsigned(VoiceReply::bytes));
+    Serial.printf("[REPLY] voice HTTP %d bytes=%u\n", result, unsigned(VoiceReply::pendingBytes));
     if (result == 200 || result == 201) {
       StorageGuard guard(s);
       if (LittleFS.exists("/voice-reply.bin") && !LittleFS.remove("/voice-reply.bin")) {

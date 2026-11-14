@@ -35,18 +35,23 @@ void cameraDrawFace(uint32_t now) {
   int blink = phase < 120 ? phase * 100 / 120 : phase < 240 ? (240 - phase) * 100 / 120 : 0;
   int mood = M5.Speaker.isPlaying() ? MOOD_SING : MOOD_IDLE;
   bool recording = VoiceReply::state.load() == VoiceReply::RECORDING;
+  int remaining = recording ? int((VoiceReply::durationMs -
+      std::min(VoiceReply::durationMs, uint32_t(now - VoiceReply::startedAt)) + 999) / 1000) : 0;
+  static int previousRemaining = -1;
   static bool previousRecording = false;
   static int previousBlink = -1, previousMood = -1;
-  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood && recording == previousRecording) return;
+  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood &&
+      recording == previousRecording && remaining == previousRemaining) return;
   if (cameraFaceBuffered) {
     drawFace(cameraFaceCanvas, mood, blink, cameraFaces[cameraFaceIndex]);
     cameraFaceCanvas.pushSprite(0, 0);
   } else drawFace(M5.Display, mood, blink, cameraFaces[cameraFaceIndex]);
   if (recording) {
     M5.Display.setTextColor(TFT_WHITE, TFT_RED);
-    M5.Display.drawString("REC 3 sec - speak now", 80, 216);
+    M5.Display.drawString(String("REC ") + remaining + " sec - speak now", 70, 216);
   }
   previousRecording = recording;
+  previousRemaining = remaining;
   previousBlink = blink; previousMood = mood;
   cameraScreenDirty = false;
 }
@@ -342,6 +347,11 @@ void loop() {
     }
     String footer = cameraNoticeActive(millis(), cameraMessageAt) ? cameraMessage :
                     cameraLiveStatus(state.status, vision.enabled.load(), state.trackState, state.sceneClear);
+    if (VoiceReply::state.load() == VoiceReply::RECORDING) {
+      uint32_t remaining = (VoiceReply::durationMs - std::min(VoiceReply::durationMs,
+          uint32_t(millis() - VoiceReply::startedAt)) + 999) / 1000;
+      footer = String("REC ") + remaining + " sec - speak now";
+    }
     if (cameraScreenDirty || footer != previous[7]) {
       M5.Display.setTextPadding(320);
       M5.Display.drawString(footer, 0, 151);

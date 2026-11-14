@@ -99,6 +99,7 @@ std::map<std::string,Reply> replies;
 std::map<std::string,int> calls;
 std::map<std::string,String> postedBodies;
 std::map<std::string,String> contentTypes;
+std::map<std::string,size_t> postedSizes;
 constexpr int HTTPC_DISABLE_FOLLOW_REDIRECTS=0;
 struct HTTPClient {
  String url; Reply response;
@@ -108,7 +109,7 @@ struct HTTPClient {
  void addHeader(const char* name,const char* value){ if(std::string(name)=="Content-Type") contentTypes[url]=value; }
  int GET() { ++calls[url]; response=replies.at(url); return response.status; }
  int POST(const String& body) { postedBodies[url]=body; return GET(); }
- int POST(uint8_t*, size_t n) { assert(n == 96044); return GET(); }
+ int POST(uint8_t*, size_t n) { assert(n > 44 && n <= 320044 && (n - 44) % 2 == 0); postedSizes[url]=n; return GET(); }
  int getSize() {return response.declared;}
  int writeToStream(Stream* out) {
   size_t n=response.truncate<0?response.body.size():size_t(response.truncate);
