@@ -6,7 +6,7 @@ import { useSyncExternalStore } from "react";
  * - アカウントのログイン … sessionStorage（デバイス一覧とは別）
  * - デバイスごとのログイン … そのアカウントの一覧と一緒に保存する
  */
-export type StoredSession = { token: string; device_id: string; expires_at?: string; user_id?: string };
+export type StoredSession = { token: string; device_id: string; expires_at?: string; user_id?: string; email?: string };
 /** 家ごとの役割。居住者＝設定変更・招待の発行ができる／差し出し手＝メッセージ登録だけ */
 export type DeviceRole = "resident" | "messenger";
 /** 家のアイコン。バックエンドに保存先がないため、このブラウザ（アカウントごと）にだけ保存する */
@@ -206,12 +206,13 @@ export function getSession(deviceId: string = state.activeId): StoredSession | n
 }
 
 /** アカウントのログイン。別のアカウントのデバイス一覧には切り替え、今の一覧には追加しない */
-export function saveUserAccount(session: { token: string; expires_at?: string; userId?: number | string }) {
+export function saveUserAccount(session: { token: string; expires_at?: string; userId?: number | string; email?: string }) {
   const nextId = session.userId != null && String(session.userId) !== "" ? String(session.userId) : accountIdFromToken(session.token);
   const userSession: StoredSession = {
     token: session.token,
     device_id: "",
     expires_at: session.expires_at,
+    ...(session.email ? { email: session.email } : {}),
     ...(nextId ? { user_id: nextId } : {}),
   };
   if (!nextId || nextId === state.accountId) {
@@ -305,6 +306,7 @@ export function useDevices() {
     active,
     /** 今見ている家の役割。分かっていないときは undefined（画面は居住者と同じ扱いにし、403で補正する） */
     activeRole: active?.role,
+    userEmail: s.userSession?.email ?? null,
     authenticated: isValid(s.userSession) || Object.values(s.sessions).some(isValid),
     hasSession: (id: string) => !!s.sessions[id] || (isValid(s.userSession) && s.devices.some(d => d.id === id)),
   };
