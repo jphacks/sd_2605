@@ -4,6 +4,7 @@ import HomePage from "./pages/HomePage";
 import HistoryPage from "./pages/HistoryPage";
 import VoicePage from "./pages/VoicePage";
 import SettingsPage from "./pages/SettingsPage";
+import FacePage from "./pages/FacePage";
 import DevicesPage from "./pages/DevicesPage";
 import LoginPage from "./pages/LoginPage";
 import InvitePage from "./pages/InvitePage";
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/history" element={<HistoryPage />} />
       <Route path="/voice" element={<VoicePage />} />
       <Route path="/settings" element={<SettingsPage />} />
+      <Route path="/face" element={<FacePage />} />
       <Route path="/devices" element={<DevicesPage />} />
       {/* 招待コードの発行は居住者、受け取りは差し出し手の画面。受け取りは、まだ家がないアカウントにも必要 */}
       <Route path="/invite" element={activeRole === "messenger" ? <Navigate to="/receive" replace /> : <InvitePage />} />
