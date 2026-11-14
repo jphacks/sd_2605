@@ -200,6 +200,20 @@ GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 
 未設定のときはGoogleのボタンを出さず、メールアドレスとパスワードのログインだけ使えます。メールアドレスが確認済みで、既存アカウントと同じ場合は、そのアカウントにログインします。
 
+### ロボットの顔
+
+写真から顔のパーツを選ぶときは、Rails が Gemini を呼びます。写真そのものは保存しません。選んだパーツの JSON だけを、その家のデバイスに残します。
+
+ローカルでは、Googleログインと同じ `.env` に次を書いてから `docker compose up` します。このファイルはコミットしません。
+
+```bash
+GEMINI_API_KEY=your-key
+```
+
+キーは [Google AI Studio](https://aistudio.google.com) で発行します。未設定のときは、写真から顔を作る操作だけ失敗します。保存済みの顔の表示や、音声・デバイスの機能はそのまま使えます。モデル名を変えるときは `GEMINI_MODEL` を足します。省略時は `gemini-3.8-flash` です。
+
+公開サイトで写真から顔を作るときは、Render の Web Service の環境変数に `GEMINI_API_KEY` を手で入れます。値は Git に置きません。`render.yaml` は名前だけを持ち、Blueprint では `GOOGLE_CLIENT_ID` と同じく手入力です。
+
 ### デプロイ（Render）
 
 フロントエンドのビルド成果物をRailsが配信する1つのWeb Serviceと、PostgreSQLをRenderの無料枠に置きます。設定は `render.yaml` です。
@@ -209,7 +223,7 @@ GOOGLE_CLIENT_ID=xxxx.apps.googleusercontent.com
 3. Dashboardの **New &gt; Blueprint** でこのリポジトリを選ぶ。Web ServiceとPostgreSQLが作られる
 4. ビルドが終わったら `https://<service>.onrender.com/api/health` が `{"status":"ok"}` になることを確認する
 
-`GOOGLE_CLIENT_ID` は、Googleログインを使うときにBlueprintへ手入力します。pushするたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。無料のPostgreSQLは作成から30日で失効します。
+`GOOGLE_CLIENT_ID` は、Googleログインを使うときにBlueprintへ手入力します。写真から顔を作るときは、同じ場所に `GEMINI_API_KEY` を手入力します。未設定でもデプロイ自体は成功し、写真からの作成だけ失敗します。pushするたびに自動でデプロイされます。15分アクセスがないとスリープし、次のアクセスで数十秒かかります。無料のPostgreSQLは作成から30日で失効します。
 
 外出・帰宅のメールを届けるときは、Renderの環境変数にSMTPの接続情報を手で入れます。`SMTP_ADDRESS`、`SMTP_PORT`（省略時は587）、`SMTP_USER_NAME`、`SMTP_PASSWORD`、`MAIL_FROM` です。値はGitに置きません。`SMTP_ADDRESS` が空のときは送信せず、デバイスからのイベント保存自体は成功します。
 

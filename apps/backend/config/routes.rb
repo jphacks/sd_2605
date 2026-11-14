@@ -22,6 +22,9 @@ Rails.application.routes.draw do
       get "settings", action: :settings
       patch "settings", action: :update_settings
       post "message", action: :message
+      get "character", action: :character
+      post "character/extract", action: :extract_character
+      put "character", action: :update_character
     end
     get "auth_config", to: "auth_config#show"
     resources :users, only: [ :create ]

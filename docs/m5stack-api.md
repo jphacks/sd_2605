@@ -8,6 +8,7 @@ Webアプリ担当者から共有された仕様（2026-10-17）。本書は連�
 - 挨拶には本体のSDまたはフラッシュに保存したWAVを使います。Webを閉じていても、前回取得した設定と音声があれば挨拶できます。
 - 音量、挨拶のオン・オフ、音声の差し替えはWebが保存し、次のheartbeat以降の応答に反映されます。
 - 端末が使用するAPIはheartbeat、音声取得、イベント送信、居住者の声のアップロードです。Web向けの状態取得、履歴、設定更新、挨拶音声のアップロードAPIは使用しません。
+- heartbeatの応答には、保存済みの顔パーツを後から取るための`character.version`と`character.path`も含めます。現在のファームウェアはこのフィールドを無視します。後から足す処理は、版番号が本体の保存値と違うときだけ`path`をGETし、200のJSONを保存するだけです。画面への顔の反映は別作業です。`version`が0、またはGETが404のときは、保存済みの顔はありません。
 
 ## 接続・共通形式
 
@@ -79,6 +80,10 @@ heartbeatや音声GETが失敗しても、前回保存した設定とWAVで挨�
     "byte_size": 16044,
     "content_type": "audio/wav",
     "path": "/api/devices/entrance-1/audio/arrive"
+  },
+  "character": {
+    "version": 0,
+    "path": "/api/devices/entrance-1/character"
   }
 }
 ```
@@ -91,6 +96,7 @@ heartbeatや音声GETが失敗しても、前回保存した設定とWAVで挨�
 | volume | integer | 0〜100。0は無音、100は最大 |
 | leave_audio | object | 外出用WAVのメタデータ。ファイル本体はpathから取得 |
 | arrive_audio | object | 帰宅用WAVのメタデータ。構造はleave_audioと同じ |
+| character | object | 顔パーツの取得情報。JSON本体は含まない。現在のファームウェアは無視する |
 
 音声メタデータのフィールド:
 
@@ -100,6 +106,44 @@ heartbeatや音声GETが失敗しても、前回保存した設定とWAVで挨�
 | byte_size | integer | WAVのバイト数。保存前の空き容量確認に使用 |
 | content_type | string | 常に`audio/wav` |
 | path | string | ベースURLに付ける音声GETパス。leave_audioは外出用、arrive_audioは帰宅用 |
+
+`character`のフィールド:
+
+| フィールド | 型 | 意味 |
+| --- | --- | --- |
+| version | integer | 顔パーツの版番号。未保存は0。Webで保存するたびに1増える。本体の保存値と同じならGETしない |
+| path | string | ベースURLに付ける顔パーツのGETパス。未保存でもパスは返す |
+
+## GET /api/devices/:device_id/character
+
+保存済みの顔パーツJSONを返します。認証ヘッダーは不要です。ヘッダーを付けたときは、そのログインが有効で、その家のメンバーである必要があります。壊れたトークンは401、参加していない家は403です。
+
+未保存は **404** で、`error.code`は`not_found`です。
+
+応答 **200** はパーツの辞書そのものです。包み直しません。
+
+```json
+{
+  "bg": "pink",
+  "hairColor": "black",
+  "hair": "straight-bangs",
+  "eyeColor": "brown",
+  "eyes": "female",
+  "glasses": "round",
+  "beard": "none",
+  "mouth": "closed-smile",
+  "extras": ["freckles"],
+  "uncertain": []
+}
+```
+
+| フィールド | 型 | 意味 |
+| --- | --- | --- |
+| bg, hairColor, hair, eyeColor, eyes, glasses, beard, mouth | string | カタログにあるIDのどれか |
+| extras | array | カタログにある飾りのID。無いときは空配列 |
+| uncertain | array | 写真から選んだとき、自信がなかった項目名。手で保存したときは空でもよい |
+
+M5が後から行うのは、このJSONを保存することまでです。この辞書を画面の顔に描く処理は、このAPIの範囲外です。写真のアップロードとパーツの保存はWeb向けで、端末は呼びません。
 
 ## GET /api/devices/:device_id/audio/:slot
 

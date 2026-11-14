@@ -20,6 +20,8 @@ services:
           property: connectionString
       - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
 
 databases:
   - name: sd-2605-mobile-db

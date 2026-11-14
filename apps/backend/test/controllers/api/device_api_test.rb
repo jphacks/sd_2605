@@ -184,6 +184,8 @@ module Api
       assert_response :ok
       body = response.parsed_body
       assert_nil body["role"]
+      assert_equal 0, body.dig("character", "version")
+      assert_equal "/api/devices/#{@device.id}/character", body.dig("character", "path")
       %w[leave arrive].each do |slot|
         meta = body.fetch("#{slot}_audio")
         assert_equal 1, meta["version"]
