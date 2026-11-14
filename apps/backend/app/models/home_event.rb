@@ -3,6 +3,7 @@ class HomeEvent < ApplicationRecord
 
   belongs_to :device
   has_one :home_event_voice, dependent: :destroy
+  has_many :push_deliveries, dependent: :destroy
 
   validates :id, presence: true
   validates :occurred_at, presence: true

@@ -1,6 +1,7 @@
 class HomeEventNotice
-  # Returns false only when every messenger delivery failed, so the caller can allow a retry.
+  # Mail is opt-in only. Push uses a persistent outbox so provider waits don't delay the WAV API.
   def self.deliver!(event, wav: nil)
+    WebPushNotice.enqueue!(event)
     return true unless ENV.fetch("MAIL_NOTIFICATIONS_ENABLED", "false") == "true"
 
     memberships = event.device.device_memberships.where(role: "messenger").includes(:user).to_a

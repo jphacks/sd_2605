@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import HistoryPage from "./pages/HistoryPage";
@@ -10,16 +10,24 @@ import LoginPage from "./pages/LoginPage";
 import InvitePage from "./pages/InvitePage";
 import ReceivePage from "./pages/ReceivePage";
 import { clearAllSessions, useDevices } from "./devices";
+import { disablePush } from "./push";
 
 export default function App() {
   // アカウントにログインしていれば認証済み。セッションが切れるとログイン画面へ戻る
   const { authenticated, devices, activeRole } = useDevices();
   const navigate = useNavigate();
+  const location = useLocation();
   const home = devices.length ? "/" : "/devices";
-  const handleLogout = () => { clearAllSessions(); navigate("/login", { replace: true }); };
+  const handleLogout = () => { void (async () => {
+    try { await disablePush(); } catch { /* Browser unsubscribe is also attempted on network failure. */ }
+    clearAllSessions(); navigate("/login", { replace: true });
+  })(); };
+  const next = new URLSearchParams(location.search).get("next");
+  const afterLogin = next?.startsWith("/history?") && !next.includes("\\") ? next : home;
+  const loginUrl = location.pathname === "/history" ? `/login?next=${encodeURIComponent(location.pathname + location.search)}` : "/login";
   return <Routes>
-    <Route path="/login" element={authenticated ? <Navigate to={home} replace /> : <LoginPage onLogin={() => navigate(home, { replace: true })} />} />
-    <Route element={authenticated ? <Layout onLogout={handleLogout} /> : <Navigate to="/login" replace />}>
+    <Route path="/login" element={authenticated ? <Navigate to={afterLogin} replace /> : <LoginPage onLogin={() => navigate(afterLogin, { replace: true })} />} />
+    <Route element={authenticated ? <Layout onLogout={handleLogout} /> : <Navigate to={loginUrl} replace />}>
       <Route path="/" element={<HomePage />} />
       <Route path="/history" element={<HistoryPage />} />
       <Route path="/voice" element={<VoicePage />} />
