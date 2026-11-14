@@ -3,6 +3,7 @@
 #include "Config.h"
 #include "WavValidation.h"
 #include <atomic>
+#include "VoiceReply.h"
 
 // Keep both buffers alive for the asynchronous speaker task.
 uint8_t* cameraVoiceData[2] = {};
@@ -53,7 +54,7 @@ void cameraVoiceBegin() {
 void cameraPlayVoice(PassageAction action) {
   // Playback uses the saved buffers/settings, independently of Wi-Fi, API and NTP.
   if (!cameraStorageOK) { Serial.println("[VOICE] storage unavailable"); return; }
-  if (M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) {
+  if (VoiceReply::audioBusy() || M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) {
     Serial.println("[VOICE] skipped: speaker busy");
     return;
   }
@@ -75,5 +76,6 @@ void cameraPlayVoice(PassageAction action) {
   bool started = enabled && cameraSpeakerOK && cameraVoiceData[slot] && !M5.Speaker.isPlaying() &&
                  M5.Speaker.playWav(cameraVoiceData[slot], cameraVoiceSize[slot], 1, 0);
   if (!started) cameraVoiceReleased.store(true);
+  if (started && volume) VoiceReply::prepare(slot);
   Serial.printf("[VOICE] %s started=%d\n", actionName(action), started);
 }

@@ -1,3 +1,52 @@
+# Wi-Fi接続先2件の切り替え（2026-11-14）
+
+Git対象外の`secrets.h`で、優先先を`WIFI_SSID` / `WIFI_PASSWORD`、予備を`WIFI_SSID_2` / `WIFI_PASSWORD_2`に設定します。予備は省略・空文字でも動作し、パスワードなしのWi-Fiはパスワードだけ空にします。変更後はファームウェアを再ビルドして書き込んでください。
+
+起動時は優先先を試し、15秒以内に接続できなければ予備を試します。両方に接続できなければ15秒ごとに交互に再試行します。接続済みのWi-Fiは維持し、優先先への定期的な戻しは行いません。接続が切れた場合は優先先から再試行します。片方だけの設定にも対応します。接続管理は`WifiFailover.h`と既存APIタスクで行い、カメラ検知・保存音声再生・録音処理は継続します。
+
+Serialの`[WiFi] connecting/retrying network=1`は優先先、`network=2`は予備です。SSID・パスワードはログへ出しません。Wi-Fi接続後も時刻同期とAPI接続が必要です。両方に接続できない間の録音は、既存の返信録音の1件保持・再送仕様に従います。
+
+ホスト検証: `zig c++ -std=c++17 tests/cores3/wifi_failover_test.cpp -o build/cores3-wifi-failover-test.exe`と実行に成功。優先順・15秒の境界・交互試行・接続維持・切断時の優先先への復帰・1件/空設定・millisの桁あふれを確認しました。`api_client_test.cpp`の同期・イベント・録音再送の回帰テストも成功しました。
+
+実機検証: `scripts/build-cores3.ps1 -Jobs 2`成功後、最新のローカル接続設定を含めて`scripts/upload-cores3.ps1 -Port COM4`で再ビルド・書き込み・ハッシュ照合成功。最終Flash 1,430,663 bytes（54%）、静的RAM 70,688 bytes（21%）。`build/serial-cores3.ps1 -Port COM4 -Seconds 55`と追加30秒の観測で、`network=1`→`network=2`→`connected`、NTP同期、HTTPS heartbeat 200を確認しました。初期のAPI応答はread timeout（-11）でしたが、その後成功しました。
+
+既存の保存済み録音も再起動後に復元され、イベント作成HTTP 201、録音送信HTTP 201（96,044 bytes）を確認しました。ログはGit対象外の`build/cores3-wifi-failover-{build,upload,serial,followup}.log`です。実機での接続中断からの優先先復帰や、両接続先停止からの復旧は未確認です。今回新たな通過・録音の試験や、Web画面での録音再生確認は行っていません。
+
+# 再生後の返信録音（2026-11-14）
+
+方向確定・PIR照合後に挨拶の再生を開始できた場合、再生終了後に内蔵マイクで10秒間録音します。ESP-SRのVADで無音区間を除き、発話を含む部分だけをPCM16 / mono / 16kHzのWAV（最大320,044 bytes）にして、既存のイベント作成API、録音添付APIの順に送信します。挨拶用WAVは上書きしません。顔画面・デバッグ画面には録音中に`REC 10 sec - speak now`から残り秒数を表示します。以下の検証記録の3秒録音は変更前の結果です。
+
+VADはM5Stack ESP32コア3.3.10に同梱されたESP-SRの`esp_vad.h`（WebRTC版、`VAD_MODE_2`）を使います。VADNetモデルや追加モデル用パーティションは使いません。20ms（320サンプル）ずつ判定し、400ms以上連続して発話とされた区間を採用します。周囲の短い音や断続的な反応の保存を抑えるため、最小連続発話長を100msから400msへ調整しました。これより短い発話は採用しません。語頭と語尾の余裕として前200ms・後300msを残し、重なる区間は統合します。離れた発話区間は順番に連結し、WAVヘッダーのデータ長・RIFF全長を更新してから保存します。UIループ1回につき最大8フレームずつ判定します。録音中とVAD処理中は次の再生を受け付けません。周囲の動画・会話の人声もVADの対象になるため、本人の声だけを選別する機能ではありません。
+
+発話がなかった場合、WAVは保存・アップロードしません。通過イベントだけを送信し、録音メールや`voice=skipped`の文面メールは送りません。VADの初期化に失敗した場合も未判定の音声を保存せず、理由をSerialへ出します。音声なしのイベントはRAM保持のため、送信前の再起動では失われます。旧版の未送信WAVは再判定せずに送信します。
+
+実装とAPI: [ESP-SR esp_vad.h](https://github.com/espressif/esp-sr/blob/master/include/esp32s3/esp_vad.h)。発話区間の選択は`ReplySpeechSegments.h`、ESP-SRの呼び出しは`ReplyVad.h`、WAVの生成・復元検証は`ReplyWav.h`です。
+
+10秒・VAD版の検証（2026-11-14）:
+
+- `scripts/upload-cores3.ps1 -Port COM4`で最終調整版のビルド・書き込み・ハッシュ照合成功。Flash 1,441,359 bytes（54%）、静的RAM 71,280 bytes（21%）。ログは`build/cores3-vad-tuned-upload.log`。
+- `zig c++ -std=c++17 -I tests/cores3/vad_stubs tests/cores3/reply_vad_test.cpp -o build/cores3-reply-vad-test.exe`と実行に成功。無音、400ms未満、複数区間、前後余白の統合、先頭/末尾境界、全区間発話、初期化失敗、WAVヘッダー・可変長の検証を確認。ESP-SR判定をモックした処理テストであり、認識精度の評価ではありません。`api_client_test.cpp`も成功し、切り出し後の可変長送信、旧3秒音声の送信、音声なしイベントでWAV POSTしないことを確認。
+- 周囲の再生音声を止めた後の実機無音試験で、`speechFrames=4 longestMs=80 segments=0 keptMs=0`、`audio not saved or uploaded`、イベント作成201を確認。本番DBにも該当イベントのWAVがないことを読み取り専用で確認。ログは`build/cores3-vad-quiet-confirmed.log`。それ以前の試験は周囲音声を含んでおり、無音条件の結果として扱いません。
+- 実機発話試験で、10秒録音完了後に`speechFrames=129 longestMs=820 segments=3 keptMs=3740`、`persisted=1`、WAV 119,724 bytes、イベント作成201・録音送信201を確認。ログは`build/cores3-vad-speech-confirmed.log`。録音の聴取・最終音質、多様な距離や環境での判定精度は別途確認が必要です。
+- 受信APIは本番`sd-2605`へコミット`b63833a`でデプロイ済み（Render deploy `dep-dbs2q1c9v7es73be4ca0`、live確認）。返信録音だけ10秒・320KiBへ拡張し、挨拶の5秒制限は維持。受信API関連12テスト・76 assertionsは成功。最新mainを取り込んだ全体実行は99テスト・475 assertionsで0 failures / 1 error。変更対象外の`DeviceCharacterTest`が、Minitest 6の`CharacterExtractor.stub`未定義で失敗しました。テストはWSLの隔離したローカルDBで実施し、Ruby 3.2用の開発依存解決は隔離コピー内だけで行い、リポジトリのGemfile.lockは変更していません。
+
+録音中は挨拶・TEST SOUNDを受け付けません。CHIME OFF、自動再生対象外、挨拶無効、音量0%、再生失敗時は自動録音しません。Serialの`a` / `l`による挨拶試聴にも録音が続き、実際にイベントと音声を送信するため、試験時は注意してください。
+
+未送信録音は1件保持します。送信待ちの間も次の挨拶は再生しますが、次の録音は省略し、`[REPLY] pending`を記録します。LittleFSの`/voice-reply.bin`へ保存できた録音は再起動後も再送します。保存失敗時はRAMで保持し、再起動すると失われます。送信は既存APIタスクで約10秒ごとに再試行し、同じイベントIDを使います。両APIの200/201成功後に一時ファイルを削除します。従来の`ENABLE_AUTO_EVENTS=false`でも録音に対応するイベントは作成します。
+
+時計未同期時は録音を保持し、NTP同期後に稼働時間差から検知時刻を推定します。未同期のまま再起動した場合は再起動前の経過時間を復元できません。マイク初期化失敗・15秒で完了しない場合は破棄してスピーカーに戻します。旧ファームウェアの未送信3秒録音も復元・送信します。
+
+10秒版ではWebの返信録音受信API・保存モデルの上限も10秒・320KiBに変更しています。挨拶用音声の上限は5秒・200KiBのままです。履歴画面には録音再生UIがなく、本番Webでの再生は別途確認が必要です。録音添付は既存仕様に従い差し出し手へのメール通知も起動します。録音POSTの応答待ち時間は、同期メール送信を考慮して45秒です。受信側を本番へ反映してから10秒版を運用してください。
+
+検証ログは`build/cores3-reply-*.log`（Git対象外）。ビルド・書き込み・Serialによる録音完了／HTTP成功の確認と、実際の発音・録音の聴取・通過検知・Web再生の確認は分けて扱います。
+
+今回の検証結果:
+
+- `scripts/upload-cores3.ps1 -Port COM4`で最終ソースのビルド・書き込み・ハッシュ照合成功。Flash 1,430,575 bytes（54%）、静的RAM 70,688 bytes（21%）。最初のビルドは並行ビルドの一時ファイル競合で失敗し、終了後の最終ビルドで成功しました。
+- `zig c++ -std=c++17 -I tests/cores3/api_stubs -I <ArduinoJson/src> tests/cores3/api_client_test.cpp -o build/cores3-reply-api-test.exe`と実行に成功。既存の同期・イベント再送に加え、録音のイベント失敗時保持、送信再試行、同一ID・種別・Content-Type、成功後削除を確認。
+- `build/check-cores3-reply.ps1 -Port COM4 -Seconds 45`でARRIVEの`started=1`、録音開始・完了、`capture peak=2542`、`persisted=1`、96,044 bytesのWAV生成を確認。保存直後にカメラの`FB-SIZE`警告が2回出ましたが、その後約19〜20fps・errors=0で継続しました。
+- この試験時点ではWi-Fi接続が成立せず、実APIへの送信成功は未確認。再起動後の録音復元、実際の発音・録音の聴取、人の通過からの自動実行、画面の録音表示、Web再生も未確認です。
+
 # 顔画面とデバッグ画面（2026-10-18）
 
 起動時はCoreの`faces.ino`から移植した顔を全画面表示します（初回は青い眼鏡のBOY）。

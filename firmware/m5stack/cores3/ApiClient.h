@@ -7,6 +7,8 @@
 #include "AudioSyncPolicy.h"
 #include "WavValidation.h"
 #include <atomic>
+#include "VoiceReplyQueue.h"
+#include "WifiFailover.h"
 // HTTPClient decodes both Content-Length and chunked bodies into this bounded sink.
 class BoundedBody : public Stream {
   Storage* storage;
@@ -217,9 +219,47 @@ class ApiClient {
     h.end();
   }
   static void task(void* p) { static_cast<ApiClient*>(p)->run(); }
+  void sendVoiceReply() {
+    if (VoiceReply::state.load() != VoiceReply::READY) return;
+    if (VoiceReply::occurredAt < 1767225600)
+      VoiceReply::occurredAt = time(nullptr) - uint32_t(millis() - VoiceReply::detectedAt) / 1000;
+    tm t; char utc[24]; gmtime_r(&VoiceReply::occurredAt, &t);
+    strftime(utc, sizeof(utc), "%Y-%m-%dT%H:%M:%SZ", &t);
+    JsonDocument d;
+    d["event_id"] = VoiceReply::eventId;
+    d["event_type"] = VoiceReply::slot ? "left_home" : "arrived_home";
+    d["occurred_at"] = utc;
+    String body; serializeJson(d, body);
+    WiFiClient c; WiFiClientSecure tls; HTTPClient h;
+    if (!begin(h, c, tls, endpoint("/events"))) return;
+    h.addHeader("Content-Type", "application/json");
+    int result = h.POST(body);
+    h.end();
+    Serial.printf("[REPLY] event HTTP %d\n", result);
+    if (result != 200 && result != 201) return;
+    if (!VoiceReply::pendingBytes) {
+      VoiceReply::state.store(VoiceReply::IDLE);
+      Serial.println("[REPLY] event acknowledged without voice or voice mail"); return;
+    }
+    String path = endpoint("/events/") + VoiceReply::eventId + "/voice";
+    if (!begin(h, c, tls, path)) return;
+    h.addHeader("Content-Type", "audio/wav");
+    // Reply upload also waits for the server's synchronous mail notification.
+    h.setTimeout(45000);
+    result = h.POST(VoiceReply::wav, VoiceReply::pendingBytes);
+    h.end();
+    Serial.printf("[REPLY] voice HTTP %d bytes=%u\n", result, unsigned(VoiceReply::pendingBytes));
+    if (result == 200 || result == 201) {
+      StorageGuard guard(s);
+      if (LittleFS.exists("/voice-reply.bin") && !LittleFS.remove("/voice-reply.bin")) {
+        Serial.println("[REPLY] saved reply cleanup failed; retrying"); return;
+      }
+      VoiceReply::state.store(VoiceReply::IDLE);
+    }
+  }
   void run() {
-    uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000,
-             wifiAt = millis() - 15000;
+    uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000;
+    WifiFailover wifi;
     bool ntpStarted = false, wasConnected = false, clockReady = false;
     uint32_t clockLogAt = millis() - 20000;
     for (;;) {
@@ -229,12 +269,13 @@ class ApiClient {
         Serial.println(connected ? "[WiFi] connected" : "[WiFi] disconnected");
         wasConnected = connected;
       }
+      int network = wifi.poll(now, connected, strlen(WIFI_SSID) != 0, strlen(WIFI_SSID_2) != 0);
       if (!connected) {
-        if (now - wifiAt >= 15000) {
-          wifiAt = now;
+        if (network >= 0) {
           WiFi.disconnect();
-          Serial.println("[WiFi] connecting/retrying");
-          WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+          Serial.printf("[WiFi] connecting/retrying network=%d\n", network + 1);
+          WiFi.begin(network == 0 ? WIFI_SSID : WIFI_SSID_2,
+                     network == 0 ? WIFI_PASSWORD : WIFI_PASSWORD_2);
         }
       } else {
         if (!ntpStarted) {
@@ -257,6 +298,7 @@ class ApiClient {
         if (now - retry >= 10000) {
           retry = now;
           sendEvent();
+          sendVoiceReply();
         }
       }
       vTaskDelay(pdMS_TO_TICKS(50));
@@ -271,7 +313,7 @@ class ApiClient {
     Serial.printf("[API] base=%s device=%s TLS=%s\n", Config::baseUrl, Config::deviceId,
                   API_TLS_INSECURE ? "INSECURE DEVELOPMENT" : "CA verified");
     WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
+    WiFi.setAutoReconnect(false);  // The failover policy owns all retry attempts.
     return xTaskCreate(task, "rails-api", 12288, this, 1, nullptr) == pdPASS;
   }
 };
