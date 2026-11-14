@@ -1,5 +1,5 @@
 /** Web-facing Rails API. M5Stack uses its own unauthenticated device endpoints. */
-import { clearAllSessions, clearSession, getActiveDeviceId, getSession, getUserSession, parseRole, saveSession, saveUserAccount, setDeviceRole } from "./devices";
+import { clearAllSessions, clearSession, getActiveDeviceId, getSession, getUserSession, parseRole, saveSession, saveUserAccount, setDeviceRole, syncAccountDevices } from "./devices";
 import type { DeviceRole } from "./devices";
 export { clearSession, getSession };
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
@@ -53,6 +53,16 @@ async function saveUserSession(response: Response): Promise<void> {
     throw new Error("認証サーバーから正しいユーザー情報を取得できませんでした。");
   }
   saveUserAccount({ token: data.token, expires_at: data.expires_at, userId: data.user.id });
+  // Memberships live on the server; populate this browser's account-scoped device list after login.
+  try {
+    const membershipsResponse = await fetch(`${API_BASE_URL}/devices`, {
+      headers: { Authorization: `Bearer ${data.token}` },
+    });
+    if (membershipsResponse.ok) {
+      const memberships = await membershipsResponse.json() as { devices?: Array<{ device_id: string; role?: unknown }> };
+      if (Array.isArray(memberships.devices)) syncAccountDevices(memberships.devices);
+    }
+  } catch { /* Keep login successful if the optional device-list refresh is temporarily unavailable. */ }
 }
 
 export async function register(email: string, password: string, passwordConfirmation: string): Promise<void> {

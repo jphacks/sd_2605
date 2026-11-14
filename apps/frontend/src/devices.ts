@@ -224,6 +224,22 @@ export function saveUserAccount(session: { token: string; expires_at?: string; u
   commit({ accountId: nextId, devices: saved.devices, activeId: saved.activeId, sessions: saved.sessions, userSession });
 }
 
+/** ログインユーザーのサーバー所属一覧を取り込み、ブラウザー固有の表示設定は残す */
+export function syncAccountDevices(memberships: Array<{ device_id: string; role?: unknown }>) {
+  const current = new Map(state.devices.map(device => [device.id, device]));
+  const devices = memberships
+    .filter(membership => typeof membership.device_id === "string" && DEVICE_ID_PATTERN.test(membership.device_id))
+    .map(membership => {
+      const existing = current.get(membership.device_id);
+      const role = parseRole(membership.role);
+      return {
+        ...(existing ?? { id: membership.device_id, name: membership.device_id }),
+        ...(role ? { role } : {}),
+      };
+    });
+  commit({ ...state, devices, activeId: devices.some(device => device.id === state.activeId) ? state.activeId : devices[0]?.id ?? "", sessions: Object.fromEntries(Object.entries(state.sessions).filter(([id]) => devices.some(device => device.id === id))) });
+}
+
 /** ログイン成功時。未登録のデバイスは一覧に追加し、そのデバイスを操作中にする */
 export function saveSession(session: StoredSession, role?: DeviceRole) {
   const id = session.device_id;
