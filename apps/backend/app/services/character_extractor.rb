@@ -17,7 +17,8 @@ class CharacterExtractor
   }.freeze
   DEFAULT_MODEL = "gemini-3.8-flash"
   OPEN_TIMEOUT = 5
-  READ_TIMEOUT = 30
+  # nil waits until Gemini responds. The free tier can sit well past two minutes.
+  READ_TIMEOUT = nil
 
   def self.call(bytes, mime_type, http: Net::HTTP)
     normalized = MIME_TYPES[mime_type.to_s.split(";").first.to_s.strip.downcase]
