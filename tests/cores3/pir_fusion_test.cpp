@@ -9,12 +9,12 @@ int main() {
   auto f=ready();
   assert(f.camera(30100,30100)==O::PENDING);
   f.sample(31100,true); assert(f.poll(31100)==O::CONFIRMED); // +1000 inclusive
-  f.sample(40000,true); assert(f.camera(40000,40000)==O::PENDING);
-  assert(f.poll(41001)==O::REJECTED); // held HIGH cannot be reused, even after cooldown
+  f.sample(40000,true); assert(f.camera(40000,40000)==O::CONFIRMED); // sustained HIGH can be reused after cooldown
   f.sample(42000,false); f.sample(42100,true);
-  assert(f.camera(42100,42100)==O::CONFIRMED);
-  f.sample(42200,false); f.sample(42300,true);
-  assert(f.camera(42300,42300)==O::REJECTED); // cooldown
+  assert(f.camera(42100,42100)==O::REJECTED); // cooldown
+  f.sample(45100,true); assert(f.camera(45100,45100)==O::CONFIRMED);
+  f.sample(45200,false); f.sample(45300,true);
+  assert(f.camera(45300,45300)==O::REJECTED); // cooldown
   f=ready(); f.sample(30100,true); f.sample(30200,false);
   assert(f.camera(32100,32100)==O::CONFIRMED); // -2000 inclusive
   f=ready(); f.sample(30100,true); f.sample(30200,false);
@@ -25,9 +25,7 @@ int main() {
   assert(f.camera(35000,35000)==O::CONFIRMED); // HIGH held longer than before window
   f=ready(); f.sample(30100,true); assert(f.poll(30100)==O::NONE); // PIR only
   f.begin(0); f.sample(1,true); assert(f.camera(100,100)==O::REJECTED);
-  f.sample(30000,true); assert(f.camera(30000,30000)==O::PENDING);
-  assert(f.poll(31001)==O::REJECTED); // warmup HIGH is ignored
-  f.sample(32000,false); f.sample(32100,true); assert(f.camera(32100,32100)==O::CONFIRMED);
+  f.sample(30000,true); assert(f.camera(30000,30000)==O::CONFIRMED); // HIGH spanning warmup is accepted after warmup
   f=ready(); assert(f.camera(30100,30100)==O::PENDING); f.cancel();
   f.sample(30200,true); assert(f.poll(30200)==O::NONE);
   f=ready(0xffff8000u); f.sample(0xfffffff0u,true);

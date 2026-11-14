@@ -20,10 +20,9 @@ class PirFusion {
   void sample(uint32_t now, bool level) {
     if (level != high) { high = level; changedAt = now; }
     if (!ready(now)) return;
-    // A HIGH spanning warmup is deliberately ignored until a LOW is observed.
-    if (!high) armed = true;
-    if (high && armed) { armed = false; episode = true; consumed = false; }
-    if (high && episode) { lastHighAt = now; haveHigh = true; }
+    // Use the HIGH level as evidence, including one already present at warmup end.
+    // A sustained/re-triggered HIGH may confirm later camera candidates too.
+    if (high) { lastHighAt = now; haveHigh = true; }
   }
   Outcome camera(uint32_t now, uint32_t detectedAt) {
     if (!ready(now) || pending || (confirmed && uint32_t(now-lastConfirmedAt) < PirConfig::EVENT_COOLDOWN_MS))
@@ -35,9 +34,9 @@ class PirFusion {
     if (!pending) return Outcome::NONE;
     // Signed relative time supports millis wrap and samples after camera publication.
     int32_t relative = int32_t(lastHighAt - cameraAt);
-    if (haveHigh && !consumed && relative >= -int32_t(PirConfig::PIR_BEFORE_WINDOW_MS) &&
+    if (haveHigh && relative >= -int32_t(PirConfig::PIR_BEFORE_WINDOW_MS) &&
         relative <= int32_t(PirConfig::PIR_AFTER_WINDOW_MS)) {
-      pending = false; consumed = true; confirmed = true; lastConfirmedAt = now;
+      pending = false; confirmed = true; lastConfirmedAt = now;
       return state = Outcome::CONFIRMED;
     }
     if (uint32_t(now-cameraAt) > PirConfig::PIR_AFTER_WINDOW_MS) {
@@ -48,6 +47,6 @@ class PirFusion {
   void cancel() { pending = false; state = Outcome::NONE; }
  private:
   uint32_t bootAt = 0, lastHighAt = 0, cameraAt = 0, lastConfirmedAt = 0;
-  bool armed = false, episode = false, consumed = false, haveHigh = false;
+  bool haveHigh = false;
   bool pending = false, confirmed = false;
 };
