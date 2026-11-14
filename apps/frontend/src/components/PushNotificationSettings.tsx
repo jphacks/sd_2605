@@ -39,8 +39,7 @@ export default function PushNotificationSettings() {
     finally { setBusy(false); }
   };
   return <section className="settings-card" aria-labelledby="push-settings-title">
-    <div className="settings-card-heading"><div className="settings-icon settings-icon-blue"><Bell size={19} /></div><div><h2 id="push-settings-title">ブラウザ通知</h2><p>差し出し手として参加している家から、外出・帰宅や声の返信を受け取れます。</p></div></div>
-    <p className="muted">この端末・ブラウザごとの設定です。メール通知は現在停止しています。</p>
+    <div className="settings-card-heading"><div className="settings-icon settings-icon-blue"><Bell size={19} /></div><div><h2 id="push-settings-title">ブラウザ通知</h2></div></div>
     {unsupported && <div className="inline-alert info">{unsupported}</div>}
     {!unsupported && config && !config.eligible && <div className="inline-alert info">通知を受け取るには、家の招待コードで差し出し手として参加してください。</div>}
     {!unsupported && config && !config.configured && <div className="inline-alert info">通知機能は準備中です。時間をおいて試してください。</div>}
