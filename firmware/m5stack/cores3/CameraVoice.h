@@ -75,6 +75,7 @@ void cameraPlayVoice(PassageAction action) {
   cameraVoiceReleased.store(false);
   bool started = enabled && cameraSpeakerOK && cameraVoiceData[slot] && !M5.Speaker.isPlaying() &&
                  M5.Speaker.playWav(cameraVoiceData[slot], cameraVoiceSize[slot], 1, 0);
+  if (MotionDirectionConfig::passageDebug) Serial.printf("[VOICE] acceptedAt=%lu accepted=%d (speaker enqueue, not measured acoustic start)\n", (unsigned long)millis(), started);
   if (!started) cameraVoiceReleased.store(true);
   if (started && volume) VoiceReply::prepare(slot);
   Serial.printf("[VOICE] %s started=%d\n", actionName(action), started);

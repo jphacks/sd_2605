@@ -150,17 +150,17 @@ int main() {
   };
   assert(passage({80,81,80,82,83,81}) == MotionDirection::UNKNOWN);
   assert(passage({20,40,60,80,100,120}) == MotionDirection::LEFT_TO_RIGHT);
-  assert(passage({80,81,80,82,83,81}) == MotionDirection::RIGHT_TO_LEFT);
-  assert(passage({80,81,80,82,83,81}) == MotionDirection::LEFT_TO_RIGHT);
+  assert(passage({80,81,80,82,83,81}) == MotionDirection::UNKNOWN);
+  assert(passage({80,81,80,82,83,81}) == MotionDirection::UNKNOWN);
   // A measured direction takes precedence even when it repeats the previous one.
   assert(passage({20,40,60,80,100,120}) == MotionDirection::LEFT_TO_RIGHT);
   fallback.restart();
-  assert(passage({80,81,80,82,83,81}) == MotionDirection::RIGHT_TO_LEFT);
+  assert(passage({80,81,80,82,83,81}) == MotionDirection::UNKNOWN);
   fallback.update(fallbackAt, point(80)); fallbackAt += 100;
   fallback.update(fallbackAt, point(81)); fallbackAt += 100;
   assert(fallback.update(fallbackAt, {false,false,false,false,-1}));
   assert(fallback.event().interrupted);
-  assert(fallback.event().direction == MotionDirection::LEFT_TO_RIGHT);
+  assert(fallback.event().direction == MotionDirection::UNKNOWN);
 
   MotionDirectionTracker still;
   for (uint32_t t = 0; t < 5000; t += 100) assert(!still.update(t, {}));

@@ -17,6 +17,10 @@ constexpr float minDisplacement = 32.0f, smoothingAlpha = .5f;
 constexpr float maxCentroidStep = 64.0f, maxReverseTravel = 8.0f, jitterPixels = 2.0f;
 constexpr float leftZoneEnd = imageWidth / 3.0f, rightZoneStart = imageWidth * 2.0f / 3.0f;
 // If enabled, preview and processing are flipped together, keeping screen coordinates consistent.
+constexpr bool virtualGates = true, earlyConfirmation = true, passageDebug = false;
+constexpr float gateA = 52, gateB = 108, gateHysteresis = 4;
+constexpr float gateMinTravel = 56, gateDirectionAgreement = .85f;
+constexpr unsigned earlyFlowFrames = 4;
 constexpr bool mirrorImage = false;
 // Installation mapping only: never changes the reported screen direction.
 constexpr bool invertArrivalDeparture = false;

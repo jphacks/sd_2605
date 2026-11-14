@@ -693,3 +693,28 @@ Canvas約53KBは実行時に別途確保します。ログは`build/cores3-displ
 下段の `VOL -` / `VOL +` で0〜100%を10%刻みで調整します。挨拶音声と `TEST SOUND` に適用し、0%は無音です。音量は本体のNVSに保存し、再起動後も維持します。
 右下に `LOCAL 70%` または `WEB 70%` のように設定元と現在値を表示します。ここをタップするとWebの音量設定へ戻ります。LOCAL中は本体設定を優先し、Webアプリの設定自体は変更しません。保存に失敗した場合は以前の音量を維持し、`SAVE FAILED` と表示します。
 操作ボタンは3列×3段です。画面を1秒長押しすると顔画面へ戻ります。
+
+
+### Virtual gates / early confirmation
+Configure virtualGates, earlyConfirmation, gateA/B (160px coordinates), gateHysteresis,
+gateMinTravel, gateDirectionAgreement and earlyFlowFrames in MotionDirectionConfig.h.
+Defaults: 52/108px, 4px hysteresis, 56px smoothed travel, 85% flow agreement,
+4 reliable flow frames. Both switches OFF restore legacy behavior including UNKNOWN alternation.
+With defaults UNKNOWN never alternates. Early confirmation requires ordered crossings,
+consistent centroid and block flow, no ambiguous/missing region or jump, and no return
+across the first gate. Unstable centroid falls back to normal quiet-time flow inference.
+Early uses the existing DETECTED/COOLDOWN and sequence number, preventing normal duplicates.
+PIR must confirm before playback; consumed HIGH requires a new rising edge.
+passageDebug enables event timestamps and latency to request; VOICE acceptedAt measures
+speaker enqueue acceptance, not acoustic onset. Cached WAV playback remains asynchronous.
+
+Validation: all tests/cores3 host tests passed with Zig C++17 and ArduinoJson/src,
+stubs, api_stubs and vad_stubs includes. virtual_gate_test adds both directions,
+partial crossing, ambiguity, opposite flow and duplicate checks. Synthetic 50ms samples
+20..140px: early event 500ms versus normal earliest 1000ms (500ms saved).
+This is event latency, not measured acoustic latency. CoreS3 build succeeded.
+Hardware validation remains necessary for gate placement, lighting, speed, clothing,
+turnarounds, continuous passages, PIR rearm/cooldown and acoustic onset.
+Early events cannot retract a subsequent turnaround. Normal fallback can still accept
+partial gate tracks with sufficient legacy direction evidence; gates are an early
+confirmation safeguard, not an exclusive normal-path filter.

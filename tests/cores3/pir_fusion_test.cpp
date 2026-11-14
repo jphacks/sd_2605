@@ -9,10 +9,10 @@ int main() {
   auto f=ready();
   assert(f.camera(30100,30100)==O::PENDING);
   f.sample(31100,true); assert(f.poll(31100)==O::CONFIRMED); // +1000 inclusive
-  f.sample(40000,true); assert(f.camera(40000,40000)==O::CONFIRMED); // sustained HIGH can be reused after cooldown
+  f.sample(40000,true); assert(f.camera(40000,40000)==O::PENDING); assert(f.poll(41001)==O::REJECTED); // consumed HIGH cannot be reused
   f.sample(42000,false); f.sample(42100,true);
-  assert(f.camera(42100,42100)==O::REJECTED); // cooldown
-  f.sample(45100,true); assert(f.camera(45100,45100)==O::CONFIRMED);
+  assert(f.camera(42100,42100)==O::CONFIRMED); // fresh episode
+  f.sample(45100,true); assert(f.camera(45100,45100)==O::REJECTED);
   f.sample(45200,false); f.sample(45300,true);
   assert(f.camera(45300,45300)==O::REJECTED); // cooldown
   f=ready(); f.sample(30100,true); f.sample(30200,false);

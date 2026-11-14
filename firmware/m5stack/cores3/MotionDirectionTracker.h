@@ -38,6 +38,8 @@ struct MotionDirectionEvent {
   MotionDirection direction = MotionDirection::UNKNOWN;
   float xStart = -1, xEnd = -1, dx = 0;
   unsigned frames = 0;
+  bool early = false;
+  uint32_t startedAt = 0, gateAAt = 0, gateBAt = 0, confirmedAt = 0;
   bool ambiguous = false, interrupted = false, timedOut = false;
   unsigned ambiguityFlags = 0; // 1 missing region, 2 multiple/broad regions, 4 association jump.
   float flowDx = 0;
@@ -57,6 +59,39 @@ class MotionDirectionTracker {
   unsigned uncertaintyFlags = 0;
   uint32_t startedAt = 0, finalizedAt = 0, lastAt = 0, lastMovingAt = 0;
   bool haveTime = false;
+  int gateOrigin = 0;
+  bool gateFirst = false, gateComplete = false, gateRejected = false;
+  uint32_t gateAAt = 0, gateBAt = 0;
+  void gateSample(uint32_t now, const DirectionObservation& o) {
+    using namespace MotionDirectionConfig;
+    if (!virtualGates) return;
+    if (!o.usable || o.ambiguous || (lastRawX >= 0 && std::fabs(o.x-lastRawX) > maxCentroidStep)) {
+      gateRejected = true; return;
+    }
+    if (!gateOrigin) {
+      if (o.x <= gateA-gateHysteresis) gateOrigin = -1;
+      else if (o.x >= gateB+gateHysteresis) gateOrigin = 1;
+    }
+    if (gateOrigin == -1) {
+      if (!gateFirst && o.x >= gateA+gateHysteresis) { gateFirst = true; gateAAt = now; }
+      if (gateFirst && o.x < gateA-gateHysteresis) gateRejected = true;
+      if (gateFirst && o.x >= gateB+gateHysteresis) { if (!gateComplete) gateBAt = now; gateComplete = true; }
+    } else if (gateOrigin == 1) {
+      if (!gateFirst && o.x <= gateB-gateHysteresis) { gateFirst = true; gateBAt = now; }
+      if (gateFirst && o.x > gateB+gateHysteresis) gateRejected = true;
+      if (gateFirst && o.x <= gateA-gateHysteresis) { if (!gateComplete) gateAAt = now; gateComplete = true; }
+    }
+  }
+  bool earlyReady() const {
+    using namespace MotionDirectionConfig;
+    float total = flowPositive+flowNegative, net = flowPositive-flowNegative;
+    return virtualGates && earlyConfirmation && gateComplete && !gateRejected && !uncertain &&
+      !ambiguousFrames && goodFrames >= minTrackFrames && flowFrames >= earlyFlowFrames &&
+      std::fabs(smoothX-startX) >= gateMinTravel && total > 0 &&
+      std::fabs(net) >= total*gateDirectionAgreement &&
+      ((gateOrigin == -1 && net > 0 && candidate() == MotionDirection::LEFT_TO_RIGHT) ||
+       (gateOrigin == 1 && net < 0 && candidate() == MotionDirection::RIGHT_TO_LEFT));
+  }
 
   static int zone(float x) {
     return x <= MotionDirectionConfig::leftZoneEnd ? -1 :
@@ -111,9 +146,10 @@ class MotionDirectionTracker {
         !(firstZone == -1 && lastZone == 1)) return MotionDirection::RIGHT_TO_LEFT;
     return MotionDirection::UNKNOWN;
   }
-  bool finish(uint32_t now, bool interrupted, bool timedOut) {
+  bool finish(uint32_t now, bool interrupted, bool timedOut, bool early = false) {
     using namespace MotionDirectionConfig;
     last = MotionDirectionEvent{};
+    last.early = early; last.startedAt = startedAt; last.gateAAt = gateAAt; last.gateBAt = gateBAt; last.confirmedAt = now;
     last.xStart = startX; last.xEnd = smoothX; last.dx = smoothX >= 0 ? smoothX - startX : 0;
     // A single noisy/missing region must not poison an otherwise coherent passage.
     uncertain = uncertain || (ambiguousFrames >= 3 && ambiguousFrames * 3 >= goodFrames);
@@ -123,7 +159,7 @@ class MotionDirectionTracker {
     last.interrupted = interrupted; last.timedOut = timedOut;
     if (!interrupted && !timedOut) last.direction = candidate();
     // Preserve passage state across cooldown and explicit tracking restarts.
-    if (last.direction == MotionDirection::UNKNOWN) {
+    if (!virtualGates && !earlyConfirmation && last.direction == MotionDirection::UNKNOWN) {
       if (previousDirection == MotionDirection::LEFT_TO_RIGHT)
         last.direction = MotionDirection::RIGHT_TO_LEFT;
       else if (previousDirection == MotionDirection::RIGHT_TO_LEFT)
@@ -174,15 +210,17 @@ class MotionDirectionTracker {
         startX = smoothX = lastRawX = -1; goodFrames = ambiguousFrames = 0;
         flowFrames = 0; flowPositive = flowNegative = 0;
         positiveTravel = negativeTravel = 0; uncertain = false; uncertaintyFlags = 0; firstZone = lastZone = 0;
+        gateOrigin = 0; gateFirst = gateComplete = gateRejected = false; gateAAt = gateBAt = 0;
         startedAt = now;
       }
-      sample(o);
+      gateSample(now, o); sample(o);
       lastMovingAt = now;
       if (++pending >= startFrames) { stateValue = MotionTrackState::TRACKING; quiet = 0; }
       return false;
     }
-    if (o.moving) { quiet = 0; lastMovingAt = now; sample(o); }
+    if (o.moving) { quiet = 0; lastMovingAt = now; gateSample(now, o); sample(o); }
     else ++quiet;
+    if (uint32_t(now - startedAt) < maxTrackMs && earlyReady()) return finish(now, false, false, true);
     if (quiet >= endFrames && uint32_t(now - lastMovingAt) >= endQuietMs)
       return finish(now, false, false);
     if (uint32_t(now - startedAt) >= maxTrackMs) return finish(now, false, true);

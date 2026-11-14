@@ -101,6 +101,11 @@ void cameraDrawDebugControls() {
 
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
+  if (MotionDirectionConfig::passageDebug) Serial.printf("[PASSAGE] method=%s start=%lu A=%lu B=%lu confirmed=%lu pir=%lu request=%lu latencyToRequest=%lu reject=%s\n",
+      event.directionEvent.early ? "EARLY" : "NORMAL", (unsigned long)event.directionEvent.startedAt,
+      (unsigned long)event.directionEvent.gateAAt, (unsigned long)event.directionEvent.gateBAt,
+      (unsigned long)event.directionEvent.confirmedAt, (unsigned long)millis(), (unsigned long)millis(),
+      (unsigned long)(millis()-event.directionEvent.startedAt), event.action == PassageAction::NONE ? "UNKNOWN" : "NONE");
   if (cameraChime && event.action != PassageAction::NONE) cameraPlayVoice(event.action);
   if (cameraStorageOK && ENABLE_AUTO_EVENTS && event.action != PassageAction::NONE &&
       VoiceReply::state.load() == VoiceReply::IDLE)
