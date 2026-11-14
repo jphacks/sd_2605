@@ -35,24 +35,12 @@ void cameraDrawFace(uint32_t now) {
   uint32_t phase = now % 4000;
   int blink = phase < 120 ? phase * 100 / 120 : phase < 240 ? (240 - phase) * 100 / 120 : 0;
   int mood = M5.Speaker.isPlaying() ? MOOD_SING : MOOD_IDLE;
-  bool recording = VoiceReply::state.load() == VoiceReply::RECORDING;
-  int remaining = recording ? int((VoiceReply::durationMs -
-      std::min(VoiceReply::durationMs, uint32_t(now - VoiceReply::startedAt)) + 999) / 1000) : 0;
-  static int previousRemaining = -1;
-  static bool previousRecording = false;
   static int previousBlink = -1, previousMood = -1;
-  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood &&
-      recording == previousRecording && remaining == previousRemaining) return;
+  if (!cameraScreenDirty && blink == previousBlink && mood == previousMood) return;
   if (cameraFaceBuffered) {
     drawFace(cameraFaceCanvas, mood, blink, cameraFaces[cameraFaceIndex]);
     cameraFaceCanvas.pushSprite(0, 0);
   } else drawFace(M5.Display, mood, blink, cameraFaces[cameraFaceIndex]);
-  if (recording) {
-    M5.Display.setTextColor(TFT_WHITE, TFT_RED);
-    M5.Display.drawString(String("REC ") + remaining + " sec - speak now", 70, 216);
-  }
-  previousRecording = recording;
-  previousRemaining = remaining;
   previousBlink = blink; previousMood = mood;
   cameraScreenDirty = false;
 }
