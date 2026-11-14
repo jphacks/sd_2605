@@ -1,6 +1,16 @@
 # CoreS3 PIR照合
 
-現行スケッチはCORES3_DETECTION_ONLY=1のカメラ専用構成です。Rails/Wi-Fi、LittleFS/NVS、方向別WAV再生はこのモードでは使用していません。今回もこの設定を維持しています。既存の方向フックは方向とLEAVE/ARRIVEの通知で、WAV再生には未接続です。PIR照合後に鳴らすのは既存の確認音です。旧通信版・Core版・API仕様は変更していません。
+現行スケッチはCORES3_DETECTION_ONLY=1で`CameraOnly.h`を使用します。この構成にもRails/Wi-Fi、LittleFS/NVS、方向別WAV再生が接続されており、方向確定とPIR照合の成立後に保存済みの挨拶音声を再生します。実装・音声設定の詳細は[README.md](README.md)を参照してください。以下の2026-10-17の検証記録は通信・WAV再生の接続前の結果です。
+
+## 再照合の修正（2026-11-15）
+
+一度照合したHIGHをLOWへの復帰まで使用不可にする`consumed`制限が残り、持続HIGH中の後続通過を棄却していました。この制限を除き、HIGH中は最新サンプルを照合に使用します。5秒のイベント抑制、カメラ方向確定、前後の時間窓、30秒の準備期間は維持します。LOW後の古いHIGHは時間窓を過ぎると使用できません。
+
+`build/host-tools/ziglang/zig.exe c++ -std=c++11 tests/cores3/pir_fusion_test.cpp -o build/cores3-pir-fusion-test.exe`と生成exeの実行で成功しました。同じテストは修正前の2回目の持続HIGH照合で失敗します。5秒境界での複数回照合、5秒未満の抑制、LOW後の期限切れも検証しています。既存の方向・仮想ゲート・動体検知のホストテストも成功しました。これは人の通過や実際の発音の確認ではありません。
+
+`./scripts/upload-cores3.ps1 -Port COM4`で再ビルド・書き込み・ハッシュ照合が成功しました。ログは`build/cores3-pir-repeat-upload.log`（Git対象外）です。再生後の10秒録音・VAD処理中は次の音声をスキップするため、再生を繰り返す確認では録音終了後に次の通過を行ってください。
+書き込み後40秒間のSerialでは静止中IDLE / ready=1 / count=0、約19〜20fps、errors=0を確認しました。この間に通過イベントはなく、持続HIGHでの実際の繰り返し発音は未確認です。ログは`build/cores3-pir-repeat-serial.log`（Git対象外）です。
+その後、ユーザーから実機で問題が解消したとの確認を受けました。通過回数・GPIO波形・発音時刻の計測は行っていません。
 
 ## 接続・設定
 
@@ -39,7 +49,7 @@ zig c++ -std=c++11 tests/cores3/motion_direction_test.cpp -o build/motion-direct
 ./build/motion-direction-test.exe
 ```
 
-ホストテストは前後窓の境界・期限切れ・HIGH再使用防止・クールダウン・ウォームアップ・PIR単独・キャンセル・millis周回と、既存カメラ方向判定の回帰を検証します。GPIOの電気的入力や発音の実機試験ではありません。
+ホストテストは前後窓の境界・期限切れ・持続HIGHでの再照合・クールダウン・ウォームアップ・PIR単独・キャンセル・millis周回と、既存カメラ方向判定の回帰を検証します。GPIOの電気的入力や発音の実機試験ではありません。
 
 実機確認手順:
 1. 本体とPIRを固定し起動、30秒待ち、PIRがLOWへ戻ることを確認する。
@@ -47,7 +57,7 @@ zig c++ -std=c++11 tests/cores3/motion_direction_test.cpp -o build/motion-direct
 3. 左右各10回、人を横切らせ、[CAMERA]の方向、同方向のCONFIRMED、確認音1回とMAPを確認する。各回LOWかつ5秒以上空ける。
 4. PIRを反応させずカメラだけ動かし、PENDING→REJECTED、自動音なしを確認する。
 5. カメラ範囲外でPIRだけ反応させ、方向イベントと発音がないことを確認する。
-6. HIGH保持・連続通過・5秒以内の再通過で重複再生されないことを確認する。
+6. HIGH保持中でも5秒以上空けた別のカメラ通過で再照合でき、PIR単独・5秒以内の再通過では重複再生されないことを確認する。
 7. PAUSEとウォームアップ中の抑止、手動TEST SOUND、既存UI操作を確認する。
 8. PIR_ENABLED=falseをビルド・書き込みして従来動作を確認し、trueに戻す。
 9. Wi-Fi/Railsは現行カメラ専用モードでは稼働しないため、このモードで通信維持を検証済みとは扱わない。

@@ -232,7 +232,7 @@ RUN操作後は`RUN: learning background (clear view)`を短時間表示して�
 | flowSearchRadius / flowMinVotes | 6 / 3 | 水平照合の探索幅（40×30上）と最低一致数 |
 | flowVoteAgreement / flowPathAgreement | 0.75 / 0.65 | フレーム内の左右一致率・追跡全体の純移動率 |
 | endQuietMs / backgroundClearPercent | 400ms / 5% | 方向確定までの静止時間・背景一致の診断閾値 |
-| rearmQuietMs | 1000ms | 再待機に必要な連続静止時間 |
+| rearmQuietMs | 1000ms | 再待機に必要な静止時間（単発の変化を除外し、連続した動き・無効フレームでリセット） |
 | pixelDelta | 20 | 画素の明るさ差 |
 | minNeighbors / minBlobPixels / minRegionPixels | 3 / 4 / 12 | 孤立ノイズと小領域の除去 |
 | startFrames / minTrackFrames / endFrames | 2 / 4 / 3 | 開始・方向確定・終了に必要なフレーム数 |
@@ -243,6 +243,19 @@ RUN操作後は`RUN: learning background (clear view)`を短時間表示して�
 | maxTrackMs / maxFrameGapMs | 6000 / 500ms | 追跡上限とフレーム中断 |
 | mirrorImage | false | プレビューと解析画像を同時に左右反転 |
 | invertArrivalDeparture | false | NVSに保存設定がない場合の外出／帰宅割り当て反転の初期値 |
+
+再検出の修正（2026-11-15）: 検出後の静止判定では、1フレームだけの変化を無視します。
+`startFrames`（2フレーム）連続の動き、または無効フレームで静止待ちをリセットします。
+単発ノイズでCOOLDOWNに留まり続けるケースを修正し、動き続けている間の重複検出抑制は維持します。
+`virtual_gate_test.cpp`に、200msごとの単発ノイズを挟んだ左右3回の通過と連続動作の回帰テストを追加しました。
+修正前のコードではIDLE復帰のアサーションが失敗し、修正後は成功します。
+検証コマンドは `build/host-tools/ziglang/zig.exe c++ -std=c++11 tests/cores3/<テスト名>.cpp -o build/<テスト名>.exe` と生成exeの実行です。
+`virtual_gate_test`、`motion_direction_test`、`camera_motion_test`のホストテストが成功しました。実機での通過・発音確認は未実施です。
+`./scripts/build-cores3.ps1`のビルドも成功しました（Flash 1,442,175 bytes、静的RAM 71,352 bytes）。
+`./scripts/upload-cores3.ps1 -Port COM4`で再ビルド・書き込み・ハッシュ照合が成功しました。
+書き込み後の12秒間のシリアル確認では約20fps、errors=0、静止中IDLE / ready=1 / count=0を確認しました。
+実際の通過による再検出・発音は未確認です。
+ログは`build/cores3-repeated-detection-build.log`、`build/cores3-repeated-detection-upload.log`、`build/cores3-repeated-detection-serial.log`（Git対象外）です。
 
 `sampleWidth / sampleHeight / imageWidth`は現在の固定撮影サイズに対応し、感度調整用ではありません。
 画像の左右補正は`mirrorImage`を使い、設置向きによる外出／帰宅の反転は`invertArrivalDeparture`またはMAP操作を使います。
@@ -709,7 +722,8 @@ With defaults UNKNOWN never alternates. Early confirmation requires ordered cros
 consistent centroid and block flow, no ambiguous/missing region or jump, and no return
 across the first gate. Unstable centroid falls back to normal quiet-time flow inference.
 Early uses the existing DETECTED/COOLDOWN and sequence number, preventing normal duplicates.
-PIR must confirm before playback; consumed HIGH requires a new rising edge.
+PIR must confirm before playback. A sustained HIGH can confirm a later camera passage
+after the 5-second event cooldown; a new rising edge is not required.
 passageDebug enables event timestamps and latency to request; VOICE acceptedAt measures
 speaker enqueue acceptance, not acoustic onset. Cached WAV playback remains asynchronous.
 

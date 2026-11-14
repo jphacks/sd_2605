@@ -51,6 +51,7 @@ class MotionDirectionTracker {
   MotionDirectionEvent last;
   MotionDirection previousDirection = MotionDirection::UNKNOWN;
   unsigned pending = 0, goodFrames = 0, quiet = 0, ambiguousFrames = 0;
+  unsigned rearmMovingFrames = 0;
   unsigned flowFrames = 0;
   float flowPositive = 0, flowNegative = 0;
   float startX = -1, smoothX = -1, lastRawX = -1, positiveTravel = 0, negativeTravel = 0;
@@ -167,12 +168,14 @@ class MotionDirectionTracker {
     }
     if (last.direction != MotionDirection::UNKNOWN) previousDirection = last.direction;
     finalizedAt = now; lastMovingAt = now; stateValue = MotionTrackState::DETECTED; quiet = 0; pending = 0;
+    rearmMovingFrames = 0;
     return true;
   }
  public:
   // Explicit operator restart only; automatic cooldown never relearns an occupied scene.
   void restart() {
     stateValue = MotionTrackState::IDLE; pending = goodFrames = quiet = ambiguousFrames = 0;
+    rearmMovingFrames = 0;
     flowFrames = 0; flowPositive = flowNegative = 0;
     startX = smoothX = lastRawX = -1; positiveTravel = negativeTravel = 0;
     uncertain = false; uncertaintyFlags = 0; firstZone = lastZone = 0; haveTime = false;
@@ -190,11 +193,20 @@ class MotionDirectionTracker {
     if (haveTime && uint32_t(now - lastAt) > maxFrameGapMs) o.valid = false;
     lastAt = now; haveTime = true;
     if (stateValue == MotionTrackState::DETECTED || stateValue == MotionTrackState::COOLDOWN) {
-      if (o.valid && !o.moving) { if (quiet < endFrames) ++quiet; }
-      else { quiet = 0; lastMovingAt = now; }
+      // Use the same consecutive-frame requirement as detection. A lone noisy
+      // frame must not keep extending cooldown forever in an otherwise still view.
+      if (!o.valid) {
+        rearmMovingFrames = 0; quiet = 0; lastMovingAt = now;
+      } else if (o.moving) {
+        if (rearmMovingFrames < startFrames) ++rearmMovingFrames;
+        if (rearmMovingFrames >= startFrames) { quiet = 0; lastMovingAt = now; }
+      } else {
+        rearmMovingFrames = 0;
+        if (quiet < endFrames) ++quiet;
+      }
       if (uint32_t(now - finalizedAt) >= detectedHoldMs) stateValue = MotionTrackState::COOLDOWN;
       if (stateValue == MotionTrackState::COOLDOWN && uint32_t(now - finalizedAt) >= cooldownMs &&
-          uint32_t(now - lastMovingAt) >= rearmQuietMs && quiet >= endFrames) {
+          uint32_t(now - lastMovingAt) >= rearmQuietMs && quiet >= endFrames && !o.moving) {
         stateValue = MotionTrackState::IDLE; pending = 0;
       }
       return false;

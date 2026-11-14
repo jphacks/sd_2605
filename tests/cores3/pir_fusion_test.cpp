@@ -1,5 +1,6 @@
 #include <cassert>
 #include <cstdio>
+#include <initializer_list>
 #include "../../firmware/m5stack/cores3/PirFusion.h"
 using O = PirFusion::Outcome;
 static PirFusion ready(uint32_t boot = 0) {
@@ -9,12 +10,14 @@ int main() {
   auto f=ready();
   assert(f.camera(30100,30100)==O::PENDING);
   f.sample(31100,true); assert(f.poll(31100)==O::CONFIRMED); // +1000 inclusive
-  f.sample(40000,true); assert(f.camera(40000,40000)==O::PENDING); assert(f.poll(41001)==O::REJECTED); // consumed HIGH cannot be reused
-  f.sample(42000,false); f.sample(42100,true);
-  assert(f.camera(42100,42100)==O::CONFIRMED); // fresh episode
-  f.sample(45100,true); assert(f.camera(45100,45100)==O::REJECTED);
-  f.sample(45200,false); f.sample(45300,true);
-  assert(f.camera(45300,45300)==O::REJECTED); // cooldown
+  f.sample(40000,true); assert(f.camera(40000,40000)==O::CONFIRMED); // sustained HIGH confirms a later passage
+  f.sample(40001,false);
+  assert(f.camera(41001,41001)==O::REJECTED); // cooldown still applies
+  f.sample(45000,false); f.sample(45100,true);
+  assert(f.camera(45100,45100)==O::CONFIRMED); // fresh episode
+  f.sample(48100,true); assert(f.camera(48100,48100)==O::REJECTED);
+  f.sample(48200,false); f.sample(48300,true);
+  assert(f.camera(48300,48300)==O::REJECTED); // cooldown
   f=ready(); f.sample(30100,true); f.sample(30200,false);
   assert(f.camera(32100,32100)==O::CONFIRMED); // -2000 inclusive
   f=ready(); f.sample(30100,true); f.sample(30200,false);
@@ -23,6 +26,15 @@ int main() {
   f.sample(32001,true); assert(f.poll(32001)==O::REJECTED); // too late
   f=ready(); f.sample(30100,true); f.sample(35000,true);
   assert(f.camera(35000,35000)==O::CONFIRMED); // HIGH held longer than before window
+  for (uint32_t now : {40000u,45000u,50000u}) {
+    f.sample(now-1,true);
+    assert(f.camera(now-1,now-1)==O::REJECTED); // 4999ms after confirmation
+    f.sample(now,true);
+    assert(f.camera(now,now)==O::CONFIRMED); // repeat without a LOW edge
+  }
+  f.sample(50100,false);
+  assert(f.camera(55100,55100)==O::PENDING);
+  assert(f.poll(56101)==O::REJECTED); // old HIGH cannot confirm after falling LOW
   f=ready(); f.sample(30100,true); assert(f.poll(30100)==O::NONE); // PIR only
   f.begin(0); f.sample(1,true); assert(f.camera(100,100)==O::REJECTED);
   f.sample(30000,true); assert(f.camera(30000,30000)==O::CONFIRMED); // HIGH spanning warmup is accepted after warmup

@@ -23,6 +23,29 @@ int main() {
    if(mode<3) assert(!fired);
   }
  }
- puts("Gate early, partial, ambiguous, conflicting flow and duplicate tests passed");
+ // Repeated passes must recover despite isolated camera noise during cooldown.
+ MotionDirectionTracker repeated;
+ uint32_t tick = 0;
+ unsigned repeatedEvents = 0;
+ for (int pass = 0; pass < 3; ++pass) {
+   for (int i = 0; i < 13; ++i, tick += 50) {
+     float x = pass % 2 ? 140-i*10 : 20+i*10;
+     float dx = pass % 2 ? -10.f : 10.f;
+     if (repeated.update(tick, {true,true,true,false,x,true,true,dx})) {
+       ++repeatedEvents;
+       assert(repeated.event().direction == (pass % 2 ? MotionDirection::RIGHT_TO_LEFT : MotionDirection::LEFT_TO_RIGHT));
+     }
+   }
+   assert(repeatedEvents == unsigned(pass + 1));
+   // Persistent movement must never rearm, even after the cooldown expires.
+   for (int i = 0; i < 60; ++i, tick += 50)
+     assert(!repeated.update(tick, {true,true,true,false,140,false}));
+   assert(repeated.state() == MotionTrackState::COOLDOWN);
+   // A single noisy frame every 200ms previously prevented recovery forever.
+   for (int i = 0; i < 60; ++i, tick += 50)
+     assert(!repeated.update(tick, {true,i % 4 == 0,false,false,-1,false}));
+   assert(repeated.state() == MotionTrackState::IDLE);
+ }
+ puts("Gate early, partial, ambiguous, conflicting flow, duplicate and noisy repeated-pass tests passed");
 }
 
