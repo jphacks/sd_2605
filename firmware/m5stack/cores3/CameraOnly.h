@@ -23,6 +23,9 @@ CameraMotionDetector vision;
 CameraScreenTouch cameraTouch;
 bool cameraDebugScreen = false;
 bool cameraTestMode = false;
+bool cameraManualVoicePending = false;
+bool cameraManualVoiceLeave = true;
+uint32_t cameraManualVoiceAt = 0;
 bool cameraScreenDirty = true;
 M5Canvas cameraFaceCanvas(&M5.Display);
 bool cameraFaceBuffered = false;
@@ -79,7 +82,7 @@ void cameraDrawDebugControls() {
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
   cameraDrawMapping();
-  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "TEST MODE", "VOL -", "VOL +", "VOL WEB"};
+  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "TEST MODE", "VOL -", "VOL +", "VOICE 3s"};
   M5.Display.setTextSize(1);
   for (int i = 0; i < 9; ++i) {
     int x = (i % 3) * 107, y = 166 + (i / 3) * 25;
@@ -90,7 +93,7 @@ void cameraDrawDebugControls() {
 
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
-  if (cameraTestMode) return;
+  if (cameraTestMode || cameraManualVoicePending) return;
   if (MotionDirectionConfig::passageDebug) Serial.printf("[PASSAGE] method=%s start=%lu A=%lu B=%lu confirmed=%lu pir=%lu request=%lu latencyToRequest=%lu reject=%s\n",
       event.directionEvent.early ? "EARLY" : "NORMAL", (unsigned long)event.directionEvent.startedAt,
       (unsigned long)event.directionEvent.gateAAt, (unsigned long)event.directionEvent.gateBAt,
@@ -119,8 +122,7 @@ void cameraAdjustVolume(int action) {
   bool saved;
   {
     StorageGuard guard(cameraStorage);
-    int value = action == CameraScreenTouch::volumeWeb ? -1 :
-        std::max(0, std::min(100, int(cameraStorage.effectiveVolume()) +
+    int value = std::max(0, std::min(100, int(cameraStorage.effectiveVolume()) +
             (action == CameraScreenTouch::volumeUp ? 10 : -10)));
     saved = cameraStorage.setLocalVolume(value);
   }
@@ -276,7 +278,20 @@ void loop() {
     cameraChime = !cameraChime;
     cameraNotify(cameraChime ? "Detection chime ON" : "Detection chime OFF");
   } else if (action == 11) cameraSound();
-  else if (action >= CameraScreenTouch::volumeDown && action <= CameraScreenTouch::volumeWeb)
+  else if (action == CameraScreenTouch::playVoice) {
+    if (VoiceReply::audioBusy() || M5.Speaker.isPlaying() || !cameraVoiceReleased.load()) {
+      cameraNotify("VOICE busy: try again");
+    } else {
+      cameraManualVoicePending = true;
+      cameraManualVoiceAt = now;
+      cameraDebugScreen = false;
+      cameraScreenDirty = true;
+      cameraDrawFace(now);
+      cameraNotify(cameraManualVoiceLeave ? "LEAVE in 3 sec" : "ARRIVE in 3 sec");
+      Serial.println("[UI SCREEN] FACE");
+    }
+  }
+  else if (action >= CameraScreenTouch::volumeDown && action <= CameraScreenTouch::volumeUp)
     cameraAdjustVolume(action);
   else if (action == 12) {
     cameraTestMode = !cameraTestMode;
@@ -293,7 +308,7 @@ void loop() {
   const auto eventState = vision.snapshot(false);
   if (eventState.count != cameraLastCount) {
     cameraLastCount = eventState.count;
-    if (cameraTestMode && vision.enabled.load()) cameraSound();
+    if (cameraTestMode && vision.enabled.load() && !cameraManualVoicePending) cameraSound();
     else cameraNotify("MOTION DETECTED");
   }
   if (eventState.directionCount != cameraLastDirectionCount) {
@@ -309,6 +324,11 @@ void loop() {
       if (outcome == PirFusion::Outcome::PENDING) Serial.println("[FUSION] PENDING");
       fusionOutcome(outcome);
     }
+  }
+  if (cameraManualVoicePending && uint32_t(now - cameraManualVoiceAt) >= 3000) {
+    cameraManualVoicePending = false;
+    cameraPlayVoice(cameraManualVoiceLeave ? PassageAction::LEAVE : PassageAction::ARRIVE);
+    cameraManualVoiceLeave = !cameraManualVoiceLeave;
   }
   static uint32_t previewAt = 0;
   if (cameraDebugScreen && uint32_t(now - previewAt) >= MotionDirectionConfig::previewIntervalMs) {
@@ -363,13 +383,8 @@ void loop() {
     }
     M5.Display.setTextPadding(90);
     M5.Display.drawString(cameraTestMode ? "TEST ON" : "TEST OFF", 222, 199);
-    String volumeLabel = "VOL WEB";
-    if (cameraStorageOK) {
-      StorageGuard guard(cameraStorage);
-      volumeLabel = String(cameraStorage.localVolume < 0 ? "WEB " : "LOCAL ") + cameraStorage.effectiveVolume() + "%";
-    }
     M5.Display.setTextPadding(90);
-    M5.Display.drawString(volumeLabel, 222, 224);
+    M5.Display.drawString("VOICE 3s", 222, 224);
     static String previousNetwork;
     String network = cameraNetworkStatus();
     if (cameraScreenDirty || network != previousNetwork) {

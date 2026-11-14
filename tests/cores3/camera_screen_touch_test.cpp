@@ -28,6 +28,6 @@ int main() {
     assert(t.poll(8100 + col * 200, false, 0, 0, true) == 15 + col);
   }
   t.poll(9000, true, 319, 239, true);
-  assert(t.poll(9100, false, 0, 0, true) == 17);
+  assert(t.poll(9100, false, 0, 0, true) == CameraScreenTouch::playVoice);
   puts("Screen touch: hold threshold, one toggle per hold, suppressed controls and release taps passed");
 }

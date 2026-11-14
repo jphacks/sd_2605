@@ -9,7 +9,7 @@ class CameraScreenTouch {
  public:
   static constexpr int toggleScreen = 13;
   static constexpr int nextFace = 14;
-  static constexpr int volumeDown = 15, volumeUp = 16, volumeWeb = 17;
+  static constexpr int volumeDown = 15, volumeUp = 16, playVoice = 17;
   int poll(uint32_t now, bool pressed, int x, int y, bool debug) {
     if (pressed) {
       if (!down) {
