@@ -253,3 +253,7 @@
 .event-voice { margin-top: .65rem; }
 .event-voice audio { display: block; width: min(100%, 360px); height: 40px; }
 .activity-row.is-highlighted { background: #eef5ef; }
+@media(max-width:760px){
+  .settings-footer .push-settings-actions{display:flex;width:100%;flex-wrap:nowrap;gap:.6rem}
+  .settings-footer .push-settings-actions .button{flex:1;width:auto;min-width:0;justify-content:center;padding-inline:8px}
+}
