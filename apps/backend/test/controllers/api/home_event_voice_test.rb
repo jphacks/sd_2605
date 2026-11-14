@@ -75,6 +75,25 @@ module Api
       assert_empty ActionMailer::Base.deliveries
     end
 
+    test "ten second raw and multipart replies are accepted and longer replies are rejected" do
+      post event_path, params: event_params, as: :json
+      ten_seconds = wav_bytes(160000)
+      post voice_path, params: ten_seconds, headers: { "CONTENT_TYPE" => "audio/wav" }
+      assert_response :created
+      assert_equal ten_seconds, @device.home_events.find("event-1").home_event_voice.wav
+      assert_equal ten_seconds, ActionMailer::Base.deliveries.first.attachments["voice.wav"].decoded
+
+      upload = Rack::Test::UploadedFile.new(StringIO.new(ten_seconds), "audio/wav", true, original_filename: "voice.wav")
+      post voice_path, params: { file: upload }
+      assert_response :ok
+      assert_equal 2, ActionMailer::Base.deliveries.size
+
+      post voice_path, params: wav_bytes(160001), headers: { "CONTENT_TYPE" => "audio/wav" }
+      assert_response :unprocessable_entity
+      assert_equal ten_seconds, @device.home_events.find("event-1").home_event_voice.wav
+      assert_equal 2, ActionMailer::Base.deliveries.size
+    end
+
     test "a failed delivery stays unsent so the same upload can mail on retry" do
       post event_path, params: event_params, as: :json
       with_delivery_result(false) do
@@ -126,8 +145,8 @@ module Api
       Rack::Test::UploadedFile.new(StringIO.new(wav_bytes), "audio/wav", true, original_filename: "voice.wav")
     end
 
-    def wav_bytes
-      samples = "\x00\x00".b * 1600
+    def wav_bytes(sample_count = 1600)
+      samples = "\x00\x00".b * sample_count
       bytes = "RIFF".b
       bytes << [ 36 + samples.bytesize ].pack("V")
       bytes << "WAVEfmt ".b

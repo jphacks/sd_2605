@@ -15,6 +15,18 @@ class WavAudioTest < ActiveSupport::TestCase
     assert_not WavAudio.valid?(wav(80001))
   end
 
+  test "reply recordings accept ten seconds while greeting limits stay at five" do
+    assert WavAudio.valid_reply?(wav(160000))
+    assert WavAudio.valid_reply?(wav(48000))
+    assert_not WavAudio.valid_reply?(wav(160001))
+    assert_not WavAudio.valid?(wav(160000))
+    assert_not WavAudio.valid_reply?("x" * (WavAudio::REPLY_MAX_BYTES + 1))
+    assert_not WavAudio.valid_reply?(wav(160000)[0...-1])
+    invalid_rate = wav(160000)
+    invalid_rate[24, 4] = [ 8000 ].pack("V")
+    assert_not WavAudio.valid_reply?(invalid_rate)
+  end
+
   test "rejects truncated RIFF and incorrect PCM parameters" do
     assert_not WavAudio.valid?(wav[0...-1])
     [ [ 20, [ 3 ].pack("v") ], [ 22, [ 2 ].pack("v") ], [ 24, [ 44100 ].pack("V") ],

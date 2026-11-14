@@ -1,9 +1,15 @@
 # Matches CoreS3's RIFF parser, including trailing chunks and odd-byte padding.
 class WavAudio
   MAX_BYTES = 200 * 1024
+  REPLY_MAX_BYTES = 320 * 1024
+  REPLY_MAX_SAMPLES = 16000 * 10
 
-  def self.valid?(bytes)
-    return false unless bytes && bytes.bytesize.between?(44, MAX_BYTES)
+  def self.valid_reply?(bytes)
+    valid?(bytes, max_bytes: REPLY_MAX_BYTES, max_samples: REPLY_MAX_SAMPLES)
+  end
+
+  def self.valid?(bytes, max_bytes: MAX_BYTES, max_samples: 80000)
+    return false unless bytes && bytes.bytesize.between?(44, max_bytes)
     return false unless bytes[0, 4] == "RIFF" && bytes[8, 4] == "WAVE"
     return false unless bytes[4, 4].unpack1("V") + 8 == bytes.bytesize
 
@@ -23,7 +29,7 @@ class WavAudio
         return false unless bytes[pos, 16].unpack("vvVVvv") == [ 1, 1, 16000, 32000, 2, 16 ]
         fmt = true
       when "data"
-        return false unless fmt && !data && length.positive? && length.even? && length <= 160000
+        return false unless fmt && !data && length.positive? && length.even? && length <= max_samples * 2
         data = true
       end
       pos = next_pos

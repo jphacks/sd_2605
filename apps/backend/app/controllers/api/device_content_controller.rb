@@ -151,8 +151,8 @@ module Api
       return render_error(:not_found, "not_found", "Unknown event") unless event
 
       bytes = voice_bytes
-      unless WavAudio.valid?(bytes)
-        return render_error(:unprocessable_entity, "validation_error", "WAV must be PCM16 mono 16kHz, at most 5 seconds / 200KiB")
+      unless WavAudio.valid_reply?(bytes)
+        return render_error(:unprocessable_entity, "validation_error", "WAV must be PCM16 mono 16kHz, at most 10 seconds / 320KiB")
       end
 
       created = false
@@ -215,9 +215,9 @@ module Api
     def voice_bytes
       upload = params[:file]
       if upload.respond_to?(:read)
-        upload.read(WavAudio::MAX_BYTES + 1)
+        upload.read(WavAudio::REPLY_MAX_BYTES + 1)
       elsif request.media_type == "audio/wav"
-        request.body.read(WavAudio::MAX_BYTES + 1)
+        request.body.read(WavAudio::REPLY_MAX_BYTES + 1)
       end
     end
 
