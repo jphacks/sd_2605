@@ -8,6 +8,7 @@
 #include "WavValidation.h"
 #include <atomic>
 #include "VoiceReplyQueue.h"
+#include "WifiFailover.h"
 // HTTPClient decodes both Content-Length and chunked bodies into this bounded sink.
 class BoundedBody : public Stream {
   Storage* storage;
@@ -251,8 +252,8 @@ class ApiClient {
     }
   }
   void run() {
-    uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000,
-             wifiAt = millis() - 15000;
+    uint32_t hb = millis() - Config::heartbeatMs, retry = millis() - 10000;
+    WifiFailover wifi;
     bool ntpStarted = false, wasConnected = false, clockReady = false;
     uint32_t clockLogAt = millis() - 20000;
     for (;;) {
@@ -262,12 +263,13 @@ class ApiClient {
         Serial.println(connected ? "[WiFi] connected" : "[WiFi] disconnected");
         wasConnected = connected;
       }
+      int network = wifi.poll(now, connected, strlen(WIFI_SSID) != 0, strlen(WIFI_SSID_2) != 0);
       if (!connected) {
-        if (now - wifiAt >= 15000) {
-          wifiAt = now;
+        if (network >= 0) {
           WiFi.disconnect();
-          Serial.println("[WiFi] connecting/retrying");
-          WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+          Serial.printf("[WiFi] connecting/retrying network=%d\n", network + 1);
+          WiFi.begin(network == 0 ? WIFI_SSID : WIFI_SSID_2,
+                     network == 0 ? WIFI_PASSWORD : WIFI_PASSWORD_2);
         }
       } else {
         if (!ntpStarted) {
@@ -305,7 +307,7 @@ class ApiClient {
     Serial.printf("[API] base=%s device=%s TLS=%s\n", Config::baseUrl, Config::deviceId,
                   API_TLS_INSECURE ? "INSECURE DEVELOPMENT" : "CA verified");
     WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
+    WiFi.setAutoReconnect(false);  // The failover policy owns all retry attempts.
     return xTaskCreate(task, "rails-api", 12288, this, 1, nullptr) == pdPASS;
   }
 };

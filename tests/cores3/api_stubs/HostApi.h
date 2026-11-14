@@ -127,6 +127,8 @@ int xTaskCreate(void(*fn)(void*),const char*,int,void* p,int,void*) { try{fn(p);
 #define API_TLS_INSECURE false
 #define WIFI_SSID "test"
 #define WIFI_PASSWORD "test"
+#define WIFI_SSID_2 "fallback-test"
+#define WIFI_PASSWORD_2 "fallback-test"
 namespace Config {
 constexpr char baseUrl[]="https://test.invalid",deviceId[]="entrance-1";
 constexpr uint32_t maxWav=200*1024,heartbeatMs=20000;

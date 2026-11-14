@@ -6,6 +6,12 @@
 #define WIFI_SSID ""
 #define WIFI_PASSWORD ""
 #endif
+#ifndef WIFI_SSID_2
+#define WIFI_SSID_2 ""
+#endif
+#ifndef WIFI_PASSWORD_2
+#define WIFI_PASSWORD_2 ""
+#endif
 #ifndef RAILS_BASE_URL
 #define RAILS_BASE_URL "https://sd-2605-mobile.onrender.com"
 #endif

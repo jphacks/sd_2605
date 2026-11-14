@@ -55,7 +55,7 @@ uint32_t cameraMessageAt = 0;
 void cameraNotify(const String& text) { cameraMessage = text; cameraMessageAt = millis(); }
 String cameraNetworkStatus() {
   if (!cameraStorageOK) return "WiFi:OFF STORAGE ERR";
-  if (!strlen(WIFI_SSID)) return "WiFi:NOT CONFIGURED";
+  if (!strlen(WIFI_SSID) && !strlen(WIFI_SSID_2)) return "WiFi:NOT CONFIGURED";
   switch (WiFi.status()) {
     case WL_CONNECTED:
       if (!cameraApi.code()) return time(nullptr) < 1767225600 ? "WiFi:ON TIME WAIT" : "WiFi:ON API WAIT";

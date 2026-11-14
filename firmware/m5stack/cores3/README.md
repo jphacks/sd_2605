@@ -1,3 +1,17 @@
+# Wi-Fi接続先2件の切り替え（2026-11-14）
+
+Git対象外の`secrets.h`で、優先先を`WIFI_SSID` / `WIFI_PASSWORD`、予備を`WIFI_SSID_2` / `WIFI_PASSWORD_2`に設定します。予備は省略・空文字でも動作し、パスワードなしのWi-Fiはパスワードだけ空にします。変更後はファームウェアを再ビルドして書き込んでください。
+
+起動時は優先先を試し、15秒以内に接続できなければ予備を試します。両方に接続できなければ15秒ごとに交互に再試行します。接続済みのWi-Fiは維持し、優先先への定期的な戻しは行いません。接続が切れた場合は優先先から再試行します。片方だけの設定にも対応します。接続管理は`WifiFailover.h`と既存APIタスクで行い、カメラ検知・保存音声再生・録音処理は継続します。
+
+Serialの`[WiFi] connecting/retrying network=1`は優先先、`network=2`は予備です。SSID・パスワードはログへ出しません。Wi-Fi接続後も時刻同期とAPI接続が必要です。両方に接続できない間の録音は、既存の返信録音の1件保持・再送仕様に従います。
+
+ホスト検証: `zig c++ -std=c++17 tests/cores3/wifi_failover_test.cpp -o build/cores3-wifi-failover-test.exe`と実行に成功。優先順・15秒の境界・交互試行・接続維持・切断時の優先先への復帰・1件/空設定・millisの桁あふれを確認しました。`api_client_test.cpp`の同期・イベント・録音再送の回帰テストも成功しました。
+
+実機検証: `scripts/build-cores3.ps1 -Jobs 2`成功後、最新のローカル接続設定を含めて`scripts/upload-cores3.ps1 -Port COM4`で再ビルド・書き込み・ハッシュ照合成功。最終Flash 1,430,663 bytes（54%）、静的RAM 70,688 bytes（21%）。`build/serial-cores3.ps1 -Port COM4 -Seconds 55`と追加30秒の観測で、`network=1`→`network=2`→`connected`、NTP同期、HTTPS heartbeat 200を確認しました。初期のAPI応答はread timeout（-11）でしたが、その後成功しました。
+
+既存の保存済み録音も再起動後に復元され、イベント作成HTTP 201、録音送信HTTP 201（96,044 bytes）を確認しました。ログはGit対象外の`build/cores3-wifi-failover-{build,upload,serial,followup}.log`です。実機での接続中断からの優先先復帰や、両接続先停止からの復旧は未確認です。今回新たな通過・録音の試験や、Web画面での録音再生確認は行っていません。
+
 # 再生後の返信録音（2026-11-14）
 
 方向確定・PIR照合後に挨拶の再生を開始できた場合、再生終了後に内蔵マイクで3秒間録音します。PCM16 / mono / 16kHzのWAV（96,044 bytes）を既存のイベント作成API、録音添付APIの順に送信します。挨拶用WAVは上書きしません。顔画面には録音中に`REC 3 sec - speak now`を表示します。
