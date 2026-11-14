@@ -28,7 +28,7 @@ RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
 # public/ のファイルは1年キャッシュされるので、index.html だけは SpaController から no-cache で返す。
 COPY --from=frontend /frontend/dist/ ./public/
-RUN mkdir -p spa && mv public/index.html spa/index.html
+RUN mkdir -p spa && mv public/index.html spa/index.html && mv public/push-worker.js spa/push-worker.js
 
 EXPOSE 3000
 

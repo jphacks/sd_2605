@@ -5,6 +5,7 @@ class User < ApplicationRecord
   has_many :accepted_device_invitations, class_name: "DeviceInvitation", foreign_key: :accepted_by_id, dependent: :nullify, inverse_of: :accepted_by
   has_many :registered_devices, class_name: "Device", dependent: :restrict_with_error
   has_many :device_audios, dependent: :nullify
+  has_many :push_subscriptions, dependent: :destroy
 
   has_secure_password validations: false
 

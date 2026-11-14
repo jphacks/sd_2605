@@ -4,6 +4,7 @@ import { Settings2, Volume2, Save, RefreshCw, Wifi, ShieldCheck, Lock, Smile, Ch
 import { apiRequest, devicePath, DeviceSettings, DeviceStatus, formatDateTime } from "../api";
 
 import { useDevices } from "../devices";
+import PushNotificationSettings from "../components/PushNotificationSettings";
 
 export default function SettingsPage() {
   const { active, activeRole } = useDevices();
@@ -40,6 +41,7 @@ export default function SettingsPage() {
     <div className="page-heading"><div><p className="eyebrow">DEVICE INFORMATION</p><h1>デバイス情報</h1><p className="muted">{deviceName} の接続状態{readOnly ? "を確認します。" : "や再生音量を確認します。"}</p></div><div className="heading-icon"><Settings2 size={21} /></div></div>
     {error && <div className="inline-alert error">{error}</div>}{message && <div className="inline-alert success">{message}</div>}
     {readOnly && <div className="inline-alert info" role="status"><Lock size={13} /> あなたはこの家の差し出し手です。音声メッセージの登録はできますが、デバイスの設定を変更できるのは居住者だけです。</div>}
+    <PushNotificationSettings />
     {!readOnly && <><section className="settings-card"><div className="settings-card-heading"><div className="settings-icon settings-icon-peach"><Volume2 size={19} /></div><div><h2>再生音量</h2><p>デバイスから流れる音声メッセージの音量</p></div><strong className="volume-value">{settings.volume}%</strong></div>
       <input className="volume-slider" type="range" min="0" max="100" step="5" value={settings.volume} disabled={loading} onChange={e => setSettings(s => ({ ...s, volume: Number(e.target.value) }))} /><div className="range-labels"><span>小さい</span><span>大きい</span></div>
     </section>

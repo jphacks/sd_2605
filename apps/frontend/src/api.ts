@@ -16,7 +16,7 @@ export type DeviceStatus = {
   message_count?: number;
   message_updated_at?: string | null;
 };
-export type DeviceEvent = { event_id: string; event_type: "left_home" | "arrived_home" | "message_played" | string; occurred_at: string };
+export type DeviceEvent = { event_id: string; event_type: "left_home" | "arrived_home" | "message_played" | string; occurred_at: string; voice_available?: boolean };
 export type DeviceSettings = {
   volume: number;
   leave_greeting_enabled: boolean;
@@ -193,6 +193,23 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}, withSt
   return withStatus ? { body, status: response.status } : body;
 }
 export const devicePath = (suffix: string, deviceId: string = getActiveDeviceId()) => `/devices/${encodeURIComponent(deviceId)}${suffix}`;
+export async function fetchEventVoice(deviceId: string, eventId: string, signal?: AbortSignal): Promise<Blob> {
+  const deviceSession = getSession(deviceId);
+  const session = deviceSession ?? getUserSession();
+  if (!session) throw new ApiError(401, "録音を聴くにはログインしてください。");
+  const response = await fetch(`${API_BASE_URL}${devicePath(`/events/${encodeURIComponent(eventId)}/voice`, deviceId)}`, {
+    headers: { Authorization: `Bearer ${session.token}` }, signal, cache: "no-store"
+  });
+  if (response.status === 401) {
+    if (deviceSession && getSession(deviceId)?.token === session.token) clearSession(deviceId);
+    else if (getUserSession()?.token === session.token) clearAllSessions();
+    window.dispatchEvent(new CustomEvent("tadaima:session-expired", { detail: { deviceId } }));
+  }
+  if (!response.ok) throw await readApiError(response, "録音を読み込めませんでした。");
+  if (response.headers.get("Content-Type")?.split(";")[0].trim() !== "audio/wav")
+    throw new Error("録音データを確認できませんでした。");
+  return response.blob();
+}
 export const formatDateTime = (value?: string | null) => value
   ? new Date(value).toLocaleString("ja-JP", { year: "numeric", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })
   : "—";

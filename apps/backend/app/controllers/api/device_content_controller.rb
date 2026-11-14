@@ -10,6 +10,7 @@ module Api
 
     def heartbeat
       @device.update!(last_seen_at: Time.current)
+      WebPushNotice.recover_pending!(@device)
       payload = @setting.with_lock do
         settings_json.merge(
           device_id: @device.id,
@@ -115,7 +116,24 @@ module Api
 
     def events
       limit = params.fetch(:limit, 50).to_i.clamp(1, 100)
-      render json: @device.home_events.order(occurred_at: :desc).limit(limit).map { |e| event_json(e) }
+      events = @device.home_events.order(occurred_at: :desc).limit(limit).to_a
+      voice_ids = HomeEventVoice.where(home_event_id: events.map(&:id)).pluck(:home_event_id)
+      render json: events.map { |e| event_json(e, voice_available: voice_ids.include?(e.id)) }
+    end
+
+    def voice
+      event = @device.home_events.find_by(id: params[:event_id])
+      voice = event&.home_event_voice
+      return render_error(:not_found, "not_found", "録音が見つかりません。") unless voice
+
+      response.headers["Cache-Control"] = "private, no-store"
+      send_data voice.wav, type: "audio/wav", disposition: "inline", filename: "voice.wav"
+    end
+
+    def show_event
+      event = @device.home_events.find_by(id: params[:event_id])
+      return render_error(:not_found, "not_found", "できごとが見つかりません。") unless event
+      render json: event_json(event, voice_available: event.home_event_voice.present?)
     end
 
     def create_event
@@ -208,8 +226,10 @@ module Api
       @setting.slice(:leave_greeting_enabled, :arrive_greeting_enabled, :volume)
     end
 
-    def event_json(event)
-      { event_id: event.id, event_type: event.event_type, occurred_at: event.occurred_at.iso8601 }
+    def event_json(event, voice_available: nil)
+      payload = { event_id: event.id, event_type: event.event_type, occurred_at: event.occurred_at.iso8601 }
+      payload[:voice_available] = voice_available unless voice_available.nil?
+      payload
     end
 
     def voice_bytes
@@ -221,7 +241,7 @@ module Api
       end
     end
 
-    # The first successful claim sends one mail. A later voice upload still replaces the WAV.
+    # The first claim creates push outbox rows. A later upload still replaces the WAV.
     def notify_messengers(event, wav: nil)
       return if wav.nil? && event.reload.home_event_voice.present?
 

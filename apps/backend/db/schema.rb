@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_14_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_14_193000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -96,6 +96,33 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_120000) do
     t.index ["device_id"], name: "index_home_events_on_device_id"
   end
 
+  create_table "push_deliveries", force: :cascade do |t|
+    t.string "home_event_id", null: false
+    t.bigint "push_subscription_id", null: false
+    t.integer "attempts", default: 0, null: false
+    t.datetime "sent_at"
+    t.datetime "canceled_at"
+    t.datetime "next_attempt_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["home_event_id", "push_subscription_id"], name: "index_push_deliveries_on_event_and_subscription", unique: true
+    t.index ["home_event_id"], name: "index_push_deliveries_on_home_event_id"
+    t.index ["push_subscription_id"], name: "index_push_deliveries_on_push_subscription_id"
+    t.index ["sent_at", "next_attempt_at"], name: "index_push_deliveries_on_sent_at_and_next_attempt_at"
+  end
+
+  create_table "push_subscriptions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.text "endpoint", null: false
+    t.string "endpoint_digest", null: false
+    t.string "p256dh", null: false
+    t.string "auth", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["endpoint_digest"], name: "index_push_subscriptions_on_endpoint_digest", unique: true
+    t.index ["user_id"], name: "index_push_subscriptions_on_user_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email", null: false
     t.string "password_digest"
@@ -117,4 +144,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_14_120000) do
   add_foreign_key "devices", "users"
   add_foreign_key "home_event_voices", "home_events"
   add_foreign_key "home_events", "devices"
+  add_foreign_key "push_deliveries", "home_events"
+  add_foreign_key "push_deliveries", "push_subscriptions"
+  add_foreign_key "push_subscriptions", "users"
 end

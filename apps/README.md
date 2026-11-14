@@ -229,6 +229,8 @@ GEMINI_API_KEY=your-key
 
 2026-11-14以降、メール通知は既定で停止しています。SMTP設定は保持し、明示的に再開するときだけ`MAIL_NOTIFICATIONS_ENABLED=true`を設定します。停止中もイベント・録音の保存は継続します。
 
+差し出し手への通知はWeb Pushで受け取れます。iPhoneではChrome等からホーム画面へ追加し、追加したアイコンから開いてログインした後、「情報」→「ブラウザー通知」で有効にしてください。通知から対象の履歴へ移動し、「録音を開く」で再生できます。購読登録・VAPID設定・再送の仕様と検証方法は[Web Push通知](../docs/web-push.md)を参照してください。
+
 CoreS3からの返信録音（`POST /api/devices/:device_id/events/:event_id/voice`）はPCM16 mono 16kHz・10秒以内・320KiB以下を受け付けます。挨拶登録用WAVの上限は5秒・200KiBのままです。10秒版ファームウェアを運用する前に、この受信API変更を実際のRenderデプロイ元へ反映してください。本リポジトリの`apps/`を変更しただけで、別リポジトリの本番環境へ反映されたとは扱いません。
 
 2026-11-14にRender APIで確認した現行の本番サービス`sd-2605`（公開URLは`sd-2605-mobile.onrender.com`）は、`jphacks/sd_2605`の`main`、Root Directory `apps/`を参照しています。過去の別リポジトリからのデプロイ履歴と区別し、実際のサービス設定を確認してください。
