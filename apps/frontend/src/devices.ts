@@ -2,8 +2,8 @@ import { useSyncExternalStore } from "react";
 
 /**
  * 複数デバイスの管理。
- * - 一覧と表示名、操作中のデバイス … アカウントごとの localStorage（秘密情報なし。別のブラウザには引き継がない）
- * - アカウントのログイン … sessionStorage（デバイス一覧とは別）
+ * - 一覧と表示名、操作中のデバイス … アカウントごとの localStorage（別のブラウザには引き継がない）
+ * - アカウントのログイン … localStorage（有効期限まで、ブラウザを閉じても保持）
  * - デバイスごとのログイン … そのアカウントの一覧と一緒に保存する
  */
 export type StoredSession = { token: string; device_id: string; expires_at?: string; user_id?: string; email?: string };
@@ -98,21 +98,26 @@ function writeStorage(s: Snapshot) {
     }
     localStorage.setItem(DEVICES_KEY, JSON.stringify(s.devices));
     localStorage.setItem(ACTIVE_KEY, s.activeId);
-    sessionStorage.setItem(SESSIONS_KEY, JSON.stringify(s.sessions));
-    if (s.userSession) sessionStorage.setItem(USER_KEY, JSON.stringify(s.userSession));
-    else sessionStorage.removeItem(USER_KEY);
+    localStorage.setItem(SESSIONS_KEY, JSON.stringify(s.sessions));
+    if (s.userSession) localStorage.setItem(USER_KEY, JSON.stringify(s.userSession));
+    else localStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(USER_KEY);
+    sessionStorage.removeItem(SESSIONS_KEY);
+    sessionStorage.removeItem(LEGACY_SESSION_KEY);
   } catch { /* 保存できなくてもメモリ上では動作する */ }
 }
 
 function loadUnscoped(): Omit<Snapshot, "accountId"> {
   const sessions: Record<string, StoredSession> = {};
-  const saved = readJSON<Record<string, StoredSession>>(sessionStorage, SESSIONS_KEY, {});
+  const saved = readJSON<Record<string, StoredSession>>(localStorage, SESSIONS_KEY,
+    readJSON<Record<string, StoredSession>>(sessionStorage, SESSIONS_KEY, {}));
   for (const [id, s] of Object.entries(saved)) if (isValid(s) && s.device_id === id) sessions[id] = s;
   const legacy = readJSON<StoredSession | null>(sessionStorage, LEGACY_SESSION_KEY, null);
   if (isValid(legacy) && !sessions[legacy.device_id]) sessions[legacy.device_id] = legacy;
   try { sessionStorage.removeItem(LEGACY_SESSION_KEY); } catch { /* noop */ }
 
-  let userSession = readJSON<StoredSession | null>(sessionStorage, USER_KEY, null);
+  let userSession = readJSON<StoredSession | null>(localStorage, USER_KEY,
+    readJSON<StoredSession | null>(sessionStorage, USER_KEY, null));
   if (!isValid(userSession)) userSession = null;
   if (!userSession) {
     const donor = Object.values(sessions).find(isValid);
