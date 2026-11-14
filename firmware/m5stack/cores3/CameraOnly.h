@@ -73,7 +73,7 @@ void cameraDrawMapping() {
   M5.Display.fillRect(0, 0, 320, 24, TFT_DARKGREY);
   M5.Display.drawString("DIRECTION MAP - tap to swap", 4, 1);
   String mapping = String("L->R: ") + actionName(passageAction(MotionDirection::LEFT_TO_RIGHT, invert)) +
-                   "    R->L: " + actionName(passageAction(MotionDirection::RIGHT_TO_LEFT, invert));
+                   "    L<-R: " + actionName(passageAction(MotionDirection::RIGHT_TO_LEFT, invert));
   M5.Display.drawString(mapping, 4, 13);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
 }
