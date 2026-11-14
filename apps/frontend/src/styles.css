@@ -230,3 +230,21 @@
   .device-icon-editor{padding-left:0}
   .invite-code-box>strong{font-size:24px}
 }
+.face-card{max-width:920px}
+.face-layout{display:grid;grid-template-columns:minmax(220px,320px) minmax(0,1fr);gap:22px;align-items:start}
+.face-stage{width:100%;max-width:320px;height:auto;border-radius:18px;background:#111;image-rendering:pixelated}
+.face-editor{display:grid;gap:14px}
+.face-presets,.face-extras{display:flex;flex-wrap:wrap;gap:8px}
+.face-upload{position:relative;overflow:hidden;width:fit-content}
+.face-upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.face-upload input:disabled{cursor:not-allowed}
+.face-controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.face-field{display:grid;gap:4px}
+.face-field span,.face-extras legend{font-size:11px;color:#7d887b}
+.face-field select{width:100%;min-height:38px;border:1px solid #e3e6dc;border-radius:10px;background:#fffefa;padding:0 10px;color:var(--ink)}
+.face-extras{border:0;margin:0;padding:0}
+.face-extras label{display:inline-flex;align-items:center;gap:6px;font-size:12px}
+@media(max-width:760px){
+  .face-layout{grid-template-columns:1fr}
+  .face-controls{grid-template-columns:1fr}
+}

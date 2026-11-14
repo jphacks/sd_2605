@@ -3,7 +3,9 @@ module Api
     include UserAuthenticatable
 
     # Hardware endpoints retain the existing unauthenticated device API contract.
-    before_action :authenticate_user!, except: [ :heartbeat, :audio, :create_event, :create_voice ]
+    # Character GET is also open so the device can fetch it, but a presented login is still checked.
+    before_action :authenticate_user!, except: [ :heartbeat, :audio, :create_event, :create_voice, :character ]
+    before_action :authenticate_character_reader!, only: :character
     before_action :load_device
 
     def heartbeat
@@ -12,7 +14,11 @@ module Api
         settings_json.merge(
           device_id: @device.id,
           leave_audio: DeviceAudioStore.metadata(@device, @setting, "leave"),
-          arrive_audio: DeviceAudioStore.metadata(@device, @setting, "arrive")
+          arrive_audio: DeviceAudioStore.metadata(@device, @setting, "arrive"),
+          character: {
+            version: @setting.character_version,
+            path: "/api/devices/#{@device.id}/character"
+          }
         )
       end
       render json: payload
@@ -72,6 +78,41 @@ module Api
       render json: DeviceAudioStore.metadata(@device, @setting, slot), status: :created
     end
 
+    def character
+      return render_error(:not_found, "not_found", "顔はまだ保存されていません。") if @setting.character.blank?
+
+      render json: @setting.character
+    end
+
+    def extract_character
+      return resident_only unless @device.resident?(current_user)
+
+      upload = params[:file]
+      unless upload.respond_to?(:read)
+        return render_error(:unprocessable_entity, "validation_error", "写真は JPEG、PNG、WebP で、4MB 以下にしてください。")
+      end
+
+      bytes = upload.read(CharacterExtractor::MAX_BYTES + 1)
+      render json: CharacterExtractor.call(bytes, image_mime(upload))
+    rescue CharacterExtractor::InvalidImage
+      render_error(:unprocessable_entity, "validation_error", "写真は JPEG、PNG、WebP で、4MB 以下にしてください。")
+    rescue CharacterExtractor::Error => e
+      Rails.logger.warn("character extract failed: #{e.message}")
+      render_error(:service_unavailable, "character_unavailable", "写真から顔を作れませんでした。時間をおいてもう一度試してください。")
+    end
+
+    def update_character
+      return resident_only unless @device.resident?(current_user)
+
+      character = CharacterCatalog.accept(character_params.to_h)
+      return render_error(:unprocessable_entity, "validation_error", "顔のパーツに、一覧にない値が含まれています。") unless character
+
+      @setting.with_lock do
+        @setting.update!(character: character, character_version: @setting.character_version + 1)
+      end
+      render json: @setting.character
+    end
+
     def events
       limit = params.fetch(:limit, 50).to_i.clamp(1, 100)
       render json: @device.home_events.order(occurred_at: :desc).limit(limit).map { |e| event_json(e) }
@@ -125,6 +166,33 @@ module Api
     end
 
     private
+
+    def authenticate_character_reader!
+      return if request.headers["Authorization"].blank?
+
+      @current_user = user_from_token
+      render_unauthorized unless current_user
+    end
+
+    def resident_only
+      render_error(:forbidden, "resident_only", "顔を変更できるのは、この家の居住者だけです。")
+    end
+
+    def image_mime(upload)
+      mime = upload.content_type.to_s.split(";").first.to_s.strip.downcase
+      return mime if CharacterExtractor::MIME_TYPES.key?(mime)
+
+      {
+        ".jpg" => "image/jpeg",
+        ".jpeg" => "image/jpeg",
+        ".png" => "image/png",
+        ".webp" => "image/webp"
+      }[File.extname(upload.original_filename.to_s).downcase]
+    end
+
+    def character_params
+      params.permit(:bg, :hairColor, :hair, :eyeColor, :eyes, :glasses, :beard, :mouth, extras: [], uncertain: [])
+    end
 
     def load_device
       @device = Device.find_by(id: params[:device_id])

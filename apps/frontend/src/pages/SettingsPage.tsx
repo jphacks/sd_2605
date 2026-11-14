@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Settings2, Volume2, Save, RefreshCw, Wifi, ShieldCheck, Lock } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Settings2, Volume2, Save, RefreshCw, Wifi, ShieldCheck, Lock, Smile, ChevronRight } from "lucide-react";
 import { apiRequest, devicePath, DeviceSettings, DeviceStatus, formatDateTime } from "../api";
 
 import { useDevices } from "../devices";
@@ -53,6 +54,7 @@ export default function SettingsPage() {
         <input type="checkbox" checked={settings.arrive_greeting_enabled} disabled={loading || saving} onChange={e => setSettings(s => ({ ...s, arrive_greeting_enabled: e.target.checked }))} />
       </label>
     </section></>}
+    <Link className="receive-link-card" to="/face"><span className="device-panel-icon"><Smile size={19} /></span><span><strong>ロボットの顔</strong><small>{readOnly ? "この家に保存された顔を見られます。" : "写真からパーツを選んで、この家の顔を保存できます。"}</small></span><ChevronRight size={18} /></Link>
     <section className="settings-card device-card"><div className="settings-card-heading"><div className="settings-icon settings-icon-blue"><Wifi size={19} /></div><div><h2>接続情報</h2><p>デバイスとの最終通信状況</p></div><span className="status-pill"><span className={`status-dot ${status?.online ? "" : "is-offline"}`} />{loading ? "確認中" : status?.online ? "オンライン" : "オフライン"}</span></div>
       <div className="device-info-row"><div><small>デバイスID</small><strong>{status?.device_id || deviceId}</strong></div><div><small>最終通信</small><strong>{formatDateTime(status?.last_seen_at)}</strong></div><div><small>外出の音声</small><strong>{status?.leave_audio ? "登録済み" : "未登録"}</strong></div><div><small>帰宅の音声</small><strong>{status?.arrive_audio || status?.message_audio ? "登録済み" : "未登録"}</strong></div></div>
       {!readOnly && <div className="setting-row"><div><strong>音声の再生</strong><small>設定変更はデバイスが次回設定を取得した際に反映されます。</small></div><ShieldCheck size={20} color="#6d8b70" /></div>}

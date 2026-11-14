@@ -28,7 +28,7 @@ Extractor (needs a free key from aistudio.google.com):
     node extract.mjs path\to\photo.jpg
 
 ## Status
-- Done: photo → part IDs, preview for the main parts.
-- Not done: endpoint for the web app, C++ version for the M5, some parts (square / cat-eye glasses, extras).
-- Only checked in the browser, not on the real M5.
+- Done: photo → part IDs, preview for the main parts. The web app can save one face per home and expose it for the device to fetch.
+- Not done: M5 code that calls the character API, drawing that face on the device, some parts (square / cat-eye glasses, extras) on the device firmware.
+- The web preview was checked in the browser. The M5 has not been connected to this API, and the device screen does not show the saved face yet.
 - Free Gemini API is sometimes slow or busy (503).

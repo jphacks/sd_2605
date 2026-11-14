@@ -37,6 +37,8 @@ services:
       POSTGRES_PASSWORD: password
       RAILS_ENV: development
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
     depends_on:
       db:
         condition: service_healthy
