@@ -56,7 +56,7 @@ rows=['COOLDOWN','Change:0.7 T:3%','FPS:20.0 LCD:19.0','Count:2 Dir:2','Last:LEF
 for i,row in enumerate(rows): text(168,28+i*16,row)
 text(168,140,'WiFi:ON API:200')
 text(0,151,'MOTION DETECTED')
-labels=['SENS +','SENS -','PAUSE/RUN','CHIME','TEST SOUND','RESET COUNT','VOL -','VOL +','WEB 50%']
+labels=['SENS +','SENS -','PAUSE/RUN','CHIME','TEST SOUND','TEST OFF','VOL -','VOL +','WEB 50%']
 for i,label in enumerate(labels):
     x=(i%3)*107; y=166+(i//3)*25
     rect(d,(x,y,x+105,y+23),'#7b7d7b',True)

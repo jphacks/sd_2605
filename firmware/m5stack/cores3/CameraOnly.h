@@ -22,6 +22,7 @@ CameraMotionDetector::Result fusionCandidate;
 CameraMotionDetector vision;
 CameraScreenTouch cameraTouch;
 bool cameraDebugScreen = false;
+bool cameraTestMode = false;
 bool cameraScreenDirty = true;
 M5Canvas cameraFaceCanvas(&M5.Display);
 bool cameraFaceBuffered = false;
@@ -71,8 +72,8 @@ String cameraNetworkStatus() {
     default: return "WiFi:CONNECTING";
   }
 }
-uint32_t cameraCountBase = 0, cameraLastCount = 0;
-uint32_t cameraLastDirectionCount = 0, cameraDirectionBase = 0;
+uint32_t cameraLastCount = 0;
+uint32_t cameraLastDirectionCount = 0;
 
 void cameraDrawMapping() {
   bool invert = vision.invertArrivalDeparture.load();
@@ -90,7 +91,7 @@ void cameraDrawDebugControls() {
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE, TFT_BLACK);
   cameraDrawMapping();
-  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "RESET COUNT", "VOL -", "VOL +", "VOL WEB"};
+  const char* labels[] = {"SENS +", "SENS -", "PAUSE/RUN", "CHIME", "TEST SOUND", "TEST MODE", "VOL -", "VOL +", "VOL WEB"};
   M5.Display.setTextSize(1);
   for (int i = 0; i < 9; ++i) {
     int x = (i % 3) * 107, y = 166 + (i / 3) * 25;
@@ -101,6 +102,7 @@ void cameraDrawDebugControls() {
 
 // Confirmed directions play their local voice; UNKNOWN maps to NONE.
 void handleMotionDirection(const CameraMotionDetector::Result& event) {
+  if (cameraTestMode) return;
   if (MotionDirectionConfig::passageDebug) Serial.printf("[PASSAGE] method=%s start=%lu A=%lu B=%lu confirmed=%lu pir=%lu request=%lu latencyToRequest=%lu reject=%s\n",
       event.directionEvent.early ? "EARLY" : "NORMAL", (unsigned long)event.directionEvent.startedAt,
       (unsigned long)event.directionEvent.gateAAt, (unsigned long)event.directionEvent.gateBAt,
@@ -140,7 +142,7 @@ void cameraAdjustVolume(int action) {
 }
 void cameraSound() {
   cameraApplyVolume();
-  bool started = !VoiceReply::audioBusy() && cameraSpeakerOK && !M5.Speaker.isPlaying() && M5.Speaker.tone(1200, 300);
+  bool started = !VoiceReply::audioBusy() && cameraSpeakerOK && !M5.Speaker.isPlaying() && cameraVoiceReleased.load() && M5.Speaker.tone(1200, 300);
   Serial.printf("[SOUND] started=%d\n", started);
   if (started) Serial.println("[AUDIO] PLAY");
   cameraNotify(started ? "TEST SOUND started" : "SOUND failed/busy");
@@ -289,17 +291,29 @@ void loop() {
   else if (action >= CameraScreenTouch::volumeDown && action <= CameraScreenTouch::volumeWeb)
     cameraAdjustVolume(action);
   else if (action == 12) {
+    cameraTestMode = !cameraTestMode;
+    pirFusion.cancel();
+    // Ignore detections that happened before the mode switch.
     auto state = vision.snapshot(false);
-    cameraCountBase = state.count; cameraDirectionBase = state.directionCount;
-    cameraNotify("Count reset");
+    cameraLastCount = state.count;
+    cameraLastDirectionCount = state.directionCount;
+    cameraScreenDirty = true;
+    cameraNotify(cameraTestMode ? "TEST MODE ON: move in view" : "TEST MODE OFF");
   }
   if (action >= 6) Serial.println("[UI] " + cameraMessage);
   // Dispatch audio independently of the 200ms text refresh, before LCD transfers.
   const auto eventState = vision.snapshot(false);
+  if (eventState.count != cameraLastCount) {
+    cameraLastCount = eventState.count;
+    if (cameraTestMode && vision.enabled.load()) cameraSound();
+    else cameraNotify("MOTION DETECTED");
+  }
   if (eventState.directionCount != cameraLastDirectionCount) {
     cameraLastDirectionCount = eventState.directionCount;
     Serial.printf("[CAMERA] %s\n", directionName(eventState.directionEvent.direction));
-    if (!PirConfig::PIR_ENABLED) handleMotionDirection(eventState);
+    if (cameraTestMode) {
+      // Test playback uses motion count, independently of direction/PIR.
+    } else if (!PirConfig::PIR_ENABLED) handleMotionDirection(eventState);
     else if (vision.enabled.load() && eventState.directionEvent.direction != MotionDirection::UNKNOWN) {
       // Tracker cooldown exceeds the pending window: at most one candidate is live.
       fusionCandidate = eventState;
@@ -318,17 +332,12 @@ void loop() {
   if (cameraDebugScreen && (cameraScreenDirty || now - drawAt >= 200)) {
     drawAt = now;
     auto state = vision.snapshot(false);
-    if (state.count != cameraLastCount) {
-      cameraLastCount = state.count;
-
-      cameraNotify("MOTION DETECTED");
-    }
     const char* status = state.status == 0 ? "STARTING" : state.status == 2 ? "WARMUP" :
                          state.status == -2 ? "CAMERA ERROR" : state.status == -3 ? "MEMORY ERROR" :
                          !vision.enabled.load() ? "PAUSED" : trackStateName(state.trackState);
     String rows[] = {String(status), String("Change:") + String(state.score * 100, 1) + " T:" + vision.thresholdPercent.load() + "%",
                      String("FPS:") + String(state.fps, 1) + " LCD:" + String(state.previewFps, 1),
-                     String("Count:") + (state.count - cameraCountBase) + " Dir:" + (state.directionCount - cameraDirectionBase),
+                     String("Count:") + state.count + " Dir:" + state.directionCount,
                      String(state.trackState == MotionTrackState::TRACKING ? "Now:" : "Last:") +
                          directionName(state.trackState == MotionTrackState::TRACKING ? state.liveDirection : state.directionEvent.direction),
                      String("x:") + int(state.xCurrent) + " dx:" + int(state.trackState == MotionTrackState::TRACKING ?
@@ -351,6 +360,7 @@ void loop() {
       lastDirectionLabel = rows[4]; lastDisplayedSequence = state.directionCount;
     }
     String footer = cameraNoticeActive(millis(), cameraMessageAt) ? cameraMessage :
+                    cameraTestMode ? (vision.enabled.load() ? "TEST MODE ON: move in view" : "TEST MODE ON: PAUSED") :
                     cameraLiveStatus(state.status, vision.enabled.load(), state.trackState, state.sceneClear);
     if (VoiceReply::state.load() == VoiceReply::RECORDING) {
       uint32_t remaining = (VoiceReply::durationMs - std::min(VoiceReply::durationMs,
@@ -363,6 +373,8 @@ void loop() {
       Serial.println("[UI STATUS] " + footer);
       previous[7] = footer;
     }
+    M5.Display.setTextPadding(90);
+    M5.Display.drawString(cameraTestMode ? "TEST ON" : "TEST OFF", 222, 199);
     String volumeLabel = "VOL WEB";
     if (cameraStorageOK) {
       StorageGuard guard(cameraStorage);
