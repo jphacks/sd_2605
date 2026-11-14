@@ -4,6 +4,8 @@ require "stringio"
 module Api
   class HomeEventVoiceTest < ActionDispatch::IntegrationTest
     setup do
+      @previous_mail_flag = ENV["MAIL_NOTIFICATIONS_ENABLED"]
+      ENV["MAIL_NOTIFICATIONS_ENABLED"] = "true"
       ActionMailer::Base.deliveries.clear
       @resident = User.create!(email: "voice-resident-#{SecureRandom.hex(4)}@example.com", password: "password1")
       @messenger = User.create!(email: "voice-messenger-#{SecureRandom.hex(4)}@example.com", password: "password1")
@@ -11,6 +13,19 @@ module Api
       @device = Device.create!(id: "voice-#{SecureRandom.hex(4)}", user: @resident, password: "device-pass-1")
       @device.grant_access_to!(@messenger, role: "messenger")
       @device.grant_access_to!(@other, role: "messenger")
+    end
+
+    teardown do
+      ENV["MAIL_NOTIFICATIONS_ENABLED"] = @previous_mail_flag
+    end
+
+    test "mail notifications can be paused without stopping voice storage" do
+      ENV["MAIL_NOTIFICATIONS_ENABLED"] = "false"
+      post event_path, params: event_params, as: :json
+      post voice_path, params: wav_bytes, headers: { "CONTENT_TYPE" => "audio/wav" }
+      assert_response :created
+      assert_equal wav_bytes, @device.home_events.find("event-1").home_event_voice.wav
+      assert_empty ActionMailer::Base.deliveries
     end
 
     test "creating an event does not send mail until the voice is skipped or uploaded" do

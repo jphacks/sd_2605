@@ -1,6 +1,8 @@
 class HomeEventNotice
   # Returns false only when every messenger delivery failed, so the caller can allow a retry.
   def self.deliver!(event, wav: nil)
+    return true unless ENV.fetch("MAIL_NOTIFICATIONS_ENABLED", "false") == "true"
+
     memberships = event.device.device_memberships.where(role: "messenger").includes(:user).to_a
     return true if memberships.empty?
 
