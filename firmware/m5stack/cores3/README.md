@@ -176,7 +176,7 @@ arduino-cli monitor -p COM4 --config baudrate=115200
 
 画面表示:
 - `IDLE / TRACKING / DETECTED / COOLDOWN`: 方向追跡の状態。
-- `Change / T`:  従来のフレーム差分率と感度。初期Threshold=3%、SENS +で1ポイント下げ、SENS -で上げます（1〜40%）。
+- `Change / T`:  従来のフレーム差分率と感度。初期Threshold=3%、SENS +で1ポイント下げ、SENS -で上げます（1〜40%）。タッチ操作・Serialの`+`/`-`で変更した値はNVSに保存し、再起動後も復元します。保存結果は`SAVED` / `SAVE FAILED`で表示します。保存値がない場合や範囲外の場合は初期値を使います。
 - `FPS / LCD`: 実測の撮影・解析FPSとプレビュー更新FPS。
 - `Count`: 従来の動体検知回数。動作確認モードの確認音はこの段階で鳴ります。
 - `Dir`: 方向確定イベント回数（UNKNOWNを含む）。通過イベントへの接続にはこちらを使用します。

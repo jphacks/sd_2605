@@ -182,6 +182,9 @@ void setup() {
   cameraStorageOK = cameraStorage.begin();
   if (cameraStorageOK) {
     cameraFaceIndex = cameraStorage.prefs.getUChar("faceIndex", 0) % 3;
+    int threshold = cameraStorage.prefs.getUChar("camThreshold", vision.thresholdPercent.load());
+    if (threshold >= 1 && threshold <= 40) vision.thresholdPercent.store(threshold);
+    Serial.printf("[SENS] restored threshold=%d%%\n", vision.thresholdPercent.load());
     vision.invertArrivalDeparture.store(cameraStorage.prefs.getBool(
         "invertMap", MotionDirectionConfig::invertArrivalDeparture));
     cameraVoiceBegin();
@@ -260,10 +263,21 @@ void loop() {
     if (cameraDebugScreen) cameraDrawMapping();
     cameraNotify(saved ? "Map swapped / SAVED" : "Map swapped / NOT SAVED");
   } else if (action == 7 || action == 8) {
-    int threshold = vision.thresholdPercent.load() + (action == 7 ? -1 : 1);
+    int before = vision.thresholdPercent.load();
+    int threshold = before + (action == 7 ? -1 : 1);
     threshold = std::max(1, std::min(40, threshold));
-    vision.thresholdPercent.store(threshold);
-    cameraNotify(String("Threshold ") + threshold + "%");
+    if (threshold == before) {
+      cameraNotify("Sensitivity at MIN/MAX");
+    } else {
+      vision.thresholdPercent.store(threshold);
+      bool saved = false;
+      if (cameraStorageOK) {
+        StorageGuard guard(cameraStorage);
+        saved = cameraStorage.prefs.putUChar("camThreshold", threshold) == 1;
+      }
+      Serial.printf("[SENS] threshold=%d%% saved=%d\n", threshold, saved);
+      cameraNotify(String("Threshold ") + threshold + "%" + (saved ? " SAVED" : " SAVE FAILED"));
+    }
   } else if (action == 9) {
     if (vision.enabled.load()) {
       vision.enabled.store(false);
