@@ -22,7 +22,7 @@ export default function VoicePage() {
   const [audioUrl, setAudioUrl] = useState("");
   const [sending, setSending] = useState(false);
   const [message, setMessage] = useState("");
-  const [senderName, setSenderName] = useState("");
+  const [senderName, setSenderName] = useState("ゲスト");
   const [audioSlot, setAudioSlot] = useState<AudioSlot>("arrive");
   const [isPrepared, setIsPrepared] = useState(false);
   const [wavBlob, setWavBlob] = useState<Blob | null>(null);
@@ -168,7 +168,7 @@ export default function VoicePage() {
         <div className="voice-target">登録先：<strong>{active?.name}</strong><small>{active?.id}</small></div>
         <div className="slot-choice" role="radiogroup" aria-label="再生するタイミング">{AUDIO_SLOTS.map(slot => <button type="button" key={slot.id} role="radio" aria-checked={audioSlot === slot.id} className={audioSlot === slot.id ? "is-selected" : ""} onClick={() => selectSlot(slot.id)} disabled={sending || recording}>{slot.id === "leave" ? <LogOut size={16} /> : <House size={16} />}<span><strong>{slot.label}</strong><small>{slot.phrase}</small><em className={`slot-state ${registered?.[slot.id] ? "is-registered" : ""}`}>{registered === undefined ? "登録状況を確認中" : registered === null ? "登録状況を取得できません" : registered[slot.id] ? `登録済み・${registered[slot.id]?.registered_by || "登録者不明"}・${formatDateTime(registered[slot.id]?.updated_at)}` : "未登録（標準の音声）"}</em></span></button>)}</div>
         <p className="slot-note">録音した声は、選んだ枠の声に置き換わります。枠は「外出」と「帰宅」の2つです。</p>
-        <label className="sender-name-field">登録者名（ニックネーム）<input value={senderName} onChange={e => setSenderName(e.target.value)} maxLength={40} placeholder="例：お母さん、ゆうた" required /></label>
+        <label className="sender-name-field">登録者名（ニックネーム）<input value={senderName} onChange={e => setSenderName(e.target.value)} autoFocus onFocus={e => e.target.select()} maxLength={40} placeholder="例：お母さん、ゆうた" required /></label>
         <div className="format-info"><span>変換後の形式</span><strong>WAV · PCM 16bit · 16 kHz · モノラル</strong><small>最大5秒 / 200 KB以下</small></div>
         <div className="preview-actions">
           <button className="button button-outline" onClick={clearAudio} disabled={!audio || recording || sending}><Trash2 size={16} />クリア</button>
